@@ -19,6 +19,7 @@ struct NotchRootView: View {
     @AppStorage("auroraOn") private var auroraOn = true
     @AppStorage("sweepOn") private var sweepOn = true
     @AppStorage("glowOn") private var glowOn = true
+    @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "album"
 
     /// This view injects the accent into the environment for everything
@@ -117,9 +118,16 @@ struct NotchRootView: View {
                             .strokeBorder(Theme.specularEdge, lineWidth: 1)
                             .opacity(
                                 model.state == .collapsed
-                                    ? (model.isHovering || hasLeftWing ? 0.9 : 0.5)
+                                    ? (model.isHovering || hasLeftWing ? 0.9 : (idleEdgeOn ? 0.7 : 0.5))
                                     : 1
                             )
+                    )
+                    // Bottom-lit lip: keeps the idle droplet findable
+                    // over fullscreen apps' pure black top strip.
+                    .overlay(
+                        islandShape
+                            .strokeBorder(Theme.lipLight, lineWidth: 1)
+                            .opacity(idleEdgeOn && model.state == .collapsed ? 1 : 0)
                     )
                     // One-shot light sweep around the rim on expand.
                     .overlay(

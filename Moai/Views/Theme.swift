@@ -34,6 +34,16 @@ enum Theme {
         )
     }
 
+    /// Bottom-lit lip so the collapsed droplet reads against the pure
+    /// black strip of fullscreen apps; strongest where the belly hangs.
+    static var lipLight: LinearGradient {
+        LinearGradient(
+            colors: [Color.white.opacity(0), Color.white.opacity(0.20)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     // MARK: Text hierarchy
 
     static let textPrimary = Color.white.opacity(0.92)

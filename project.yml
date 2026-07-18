@@ -1,0 +1,28 @@
+name: Moai
+options:
+  bundleIdPrefix: com.cj
+  deploymentTarget:
+    macOS: "14.0"
+targets:
+  Moai:
+    type: application
+    platform: macOS
+    sources: [Moai]
+    info:
+      path: Moai/Info.plist
+      properties:
+        LSUIElement: true
+        NSHighResolutionCapable: true
+        CFBundleDisplayName: Moai
+        NSAppleEventsUsageDescription: Moai controls Spotify and Apple Music playback from the notch.
+        NSMicrophoneUsageDescription: Hold the notch to talk. Audio is processed on this Mac only.
+        NSSpeechRecognitionUsageDescription: Turns your words into actions, on this Mac only.
+        NSRemindersFullAccessUsageDescription: Moai creates the reminders you set.
+        NSCalendarsFullAccessUsageDescription: Moai adds events and reads today's agenda.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cj.moai
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ENABLE_HARDENED_RUNTIME: NO

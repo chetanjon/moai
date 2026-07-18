@@ -1,0 +1,84 @@
+# Moai
+
+The AI-native dynamic island for Mac. Incumbents treat the notch as a widget shelf. Moai's rule: **everything you put on the island can be asked about.**
+
+The name: real moai are buried up to their shoulders. Ours is buried in the bezel. Only the head shows at the top of your screen, and it surfaces when you hold it. (Also: mo-AI. You heard it.)
+
+## v1 feature set
+
+**Do** (the core surface)
+- Hold the notch and talk, or tap and type. Same engine either way.
+- `remind me to call amma at 6` becomes a real Reminder with an alarm.
+- `schedule lunch with sarah friday at 1` becomes a real Calendar event.
+- `agenda` or `today` drops today's calendar out of the notch.
+- `focus 25` starts a pomodoro with synthesized brown noise, countdown live in the notch wing. `stop focus` ends it.
+- `timer 10` runs a countdown in the wing.
+- `brown noise` / `white noise` / `pink noise`, generated live, no audio files, works offline.
+- `note: something` captures locally. `notes` lists. `clear notes` wipes.
+- `play`, `pause`, `skip`, `previous` control music.
+- Dates parsed deterministically with NSDataDetector. Verbs by prefix. Zero network, zero key, instant.
+- Anything beyond the verbs goes to Claude only if the optional key is set (gear icon).
+
+**Voice**
+- Hold to talk, on-device speech recognition (requiresOnDeviceRecognition), live level bars, release to run. Words never leave the Mac.
+
+**Music**
+- Spotify + Apple Music. Waveform wing when playing, transport on expand. Only talks to players already running.
+
+**Clips** (clipboard history)
+- Last 30 copies. Password-manager copies (concealed/transient) never stored.
+- Brow glyph on any clip attaches it to Do: summarize, rewrite, translate.
+
+**Shelf** (file drop)
+- Drag files onto the notch, drag out, one-tap AirDrop.
+- Brow glyph on PDFs and text files: attach contents and question them.
+
+**Deliberately cut:** webcam mirror, notes-as-panel, wallpapers, widget packs, agent monitoring.
+
+## Permission prompts, in order of appearance
+
+macOS will ask once each for: Microphone + Speech Recognition (first hold-to-talk), Reminders (first remind), Calendars (first schedule/agenda), Automation for Spotify/Music (first transport tap). All expected, approve them.
+
+## Run it (on your Mac)
+
+Needs macOS 14+ and Xcode installed.
+
+```bash
+brew install xcodegen
+cd moai
+xcodegen
+open Moai.xcodeproj
+```
+
+In Xcode: select your personal team under Signing & Capabilities, then hit Run.
+
+First music control triggers a macOS Automation permission prompt (Moai → Spotify/Music). Approve it once.
+
+### Or let Claude Code do it
+
+Open this folder in Claude Code and paste:
+
+> Generate the Xcode project with xcodegen, build the Moai scheme, and fix any compile errors you hit, then run it. Do not change the design, architecture, feature scope, or the Design law section of the README. Test each verb from the README v1 feature list and fix what fails.
+
+## Architecture (30 seconds)
+
+- `NotchWindowController`: borderless non-activating NSPanel at screen-saver level, measured against the real notch via `NSScreen.safeAreaInsets` + auxiliary top areas. Global click monitor collapses the island.
+- `NotchViewModel`: island state, active tab, and the context handoff (`askAbout`) that lets clips and files flow into the Do surface.
+- `Features/`: MusicController (AppleScript polling), ClipboardStore (pasteboard polling, 1s), ShelfStore (drops, AirDrop, PDF/text extraction via PDFKit), NotesStore (UserDefaults).
+- `Views/`: NotchRootView (the morphing shape + drop target + wings), ExpandedView (tabs + Do), MusicStrip, ClipboardView, ShelfView.
+- `ClaudeService`: minimal messages API client.
+
+## Known v1 trade-offs
+
+- API key in UserDefaults. Move to Keychain before sharing builds.
+- Music polling via AppleScript every 3s. Fine for v1; MediaRemote gives richer data (artwork, progress) but it's a private framework, revisit later.
+- Clipboard is text-only for now. Images later.
+- `.screenSaver` window level sits above fullscreen video. Revisit.
+- No conversation memory in ask, each question is fresh.
+- No global hotkey yet, click-to-open only.
+
+## Roadmap
+
+- **v1.5:** Apple Foundation Models parsing for messy phrasing (on-device LLM, still free), Messages sending, global hotkey, Keychain for the key, menu bar countdown.
+- **v2:** meeting brief before your next call, screen context, image clips, artwork via MediaRemote.
+- Launch: notarized build ($99 Apple Developer), landing page with the mockup embedded, Homebrew cask.

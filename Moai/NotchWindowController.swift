@@ -1,0 +1,242 @@
+import AppKit
+import Combine
+import SwiftUI
+
+/// Borderless panel that can take keyboard focus without activating the app.
+final class NotchPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+@MainActor
+final class NotchWindowController {
+    private var panel: NotchPanel?
+    private var clickMonitor: Any?
+    private var hoverTimer: Timer?
+    private var stateSub: AnyCancellable?
+    private var napActivity: NSObjectProtocol?
+    private var pointerInside = false
+    /// Pending open-intent check; the pointer must linger in the zone,
+    /// not just cross it.
+    private var openIntentWork: DispatchWorkItem?
+    private var lastOpenAt = Date.distantPast
+    let viewModel = NotchViewModel()
+
+    /// Ignore hover-out this soon after opening, so nothing can cycle.
+    private let minimumOpen: TimeInterval = 0.25
+
+    /// Pointer must stay in the open zone this long before the island
+    /// opens — drive-through traffic along the top edge never triggers.
+    /// User-tunable ("openDelay" in settings).
+    private var openDwell: TimeInterval {
+        UserDefaults.standard.object(forKey: "openDelay") as? Double ?? 0.12
+    }
+
+    func show() {
+        // Prefer the built-in display with a notch. Fall back to main.
+        let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
+            ?? NSScreen.main
+        guard let screen else { return }
+
+        // Measure the physical notch; notch-less displays keep the default pill.
+        var notchSize = NotchViewModel.defaultNotchSize
+        if screen.safeAreaInsets.top > 0,
+           let left = screen.auxiliaryTopLeftArea,
+           let right = screen.auxiliaryTopRightArea {
+            notchSize = CGSize(
+                width: screen.frame.width - left.width - right.width,
+                height: screen.safeAreaInsets.top
+            )
+        }
+        viewModel.notchSize = notchSize
+
+        // The panel is a fixed transparent region at the top of the screen.
+        // The island animates inside it, so the window never resizes.
+        let panelSize = CGSize(width: 820, height: 480)
+        let frame = NSRect(
+            x: screen.frame.midX - panelSize.width / 2,
+            y: screen.frame.maxY - panelSize.height,
+            width: panelSize.width,
+            height: panelSize.height
+        )
+
+        let panel = NotchPanel(
+            contentRect: frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .screenSaver
+        panel.collectionBehavior = [
+            .canJoinAllSpaces,
+            .fullScreenAuxiliary,
+            .stationary,
+            .ignoresCycle
+        ]
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.isMovable = false
+        panel.hidesOnDeactivate = false
+        // Keep mouse-moved events flowing even while this panel is key,
+        // so the hover monitors never go blind mid-session.
+        panel.acceptsMouseMovedEvents = true
+
+        let hosting = NSHostingView(rootView: NotchRootView(model: viewModel))
+        hosting.frame = NSRect(origin: .zero, size: panelSize)
+        panel.contentView = hosting
+
+        // When the island expands, take key focus so typing works
+        // without pulling the user's current app out of focus.
+        viewModel.onExpandChange = { [weak panel] expanded in
+            if expanded {
+                panel?.makeKeyAndOrderFront(nil)
+            }
+        }
+
+        panel.orderFrontRegardless()
+        self.panel = panel
+        viewModel.start()
+
+        // Clicking anywhere outside the app collapses the island.
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.viewModel.collapse()
+            }
+        }
+
+        // Hover is tracked against *state-based* zones, not the
+        // animating SwiftUI view (which flickers), and by polling the
+        // pointer rather than event monitors: global mouseMoved
+        // delivery silently stops in several key-window/active-app
+        // configurations, but reading the location always works.
+        //
+        // A background LSUIElement app gets App Nap'd when launched via
+        // LaunchServices, which throttles timers to a crawl — declare a
+        // long-running activity (idle sleep still allowed) to opt out.
+        napActivity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Notch hover tracking"
+        )
+        let timer = Timer(timeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.pointerMoved() }
+        }
+        // Common modes so menu/event tracking doesn't pause the poll.
+        RunLoop.main.add(timer, forMode: .common)
+        hoverTimer = timer
+
+        // Whenever the island changes state — for any reason, hover or
+        // not — re-sync hover bookkeeping so a stale flag can never
+        // block the next open.
+        stateSub = viewModel.$state.sink { [weak self] newState in
+            Task { @MainActor in self?.stateChanged(newState) }
+        }
+    }
+
+    /// Resolved fresh every time: AppKit recreates NSScreen objects at
+    /// will, so holding one weakly goes nil and kills hover silently.
+    private var notchScreen: NSScreen? {
+        NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main
+    }
+
+    private func pointerMoved() {
+        guard let screen = notchScreen else { return }
+        let location = NSEvent.mouseLocation
+        switch viewModel.state {
+        case .collapsed:
+            if collapsedZone(on: screen).contains(location) {
+                guard !pointerInside, openIntentWork == nil else { return }
+                let work = DispatchWorkItem { [weak self] in
+                    guard let self else { return }
+                    self.openIntentWork = nil
+                    // Still there after the dwell, still collapsed?
+                    guard self.viewModel.state == .collapsed,
+                          let screen = self.notchScreen,
+                          self.collapsedZone(on: screen).contains(NSEvent.mouseLocation)
+                    else { return }
+                    self.pointerInside = true
+                    self.lastOpenAt = Date()
+                    self.viewModel.hoverChanged(true)
+                }
+                openIntentWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + openDwell, execute: work)
+            } else {
+                openIntentWork?.cancel()
+                openIntentWork = nil
+                if pointerInside {
+                    pointerInside = false
+                    viewModel.hoverChanged(false)
+                }
+            }
+        case .expanded:
+            openIntentWork?.cancel()
+            openIntentWork = nil
+            let inside = expandedZone(on: screen).contains(location)
+            guard inside != pointerInside else { return }
+            // Freshly opened islands don't close; kills any fast cycle.
+            if !inside, Date().timeIntervalSince(lastOpenAt) < minimumOpen { return }
+            pointerInside = inside
+            viewModel.hoverChanged(inside)
+        case .listening:
+            // Voice sessions are press-driven; hover keeps its hands off.
+            break
+        }
+    }
+
+    /// Any state change, hover-driven or not (tap, file drop, click-away
+    /// collapse), resets hover bookkeeping to match reality.
+    private func stateChanged(_ newState: NotchViewModel.IslandState) {
+        openIntentWork?.cancel()
+        openIntentWork = nil
+        switch newState {
+        case .collapsed:
+            pointerInside = false
+        case .expanded:
+            lastOpenAt = Date()
+            if let screen = notchScreen {
+                pointerInside = expandedZone(on: screen).contains(NSEvent.mouseLocation)
+            }
+        case .listening:
+            break
+        }
+    }
+
+    /// Generous reach in both directions: skimming the top edge near
+    /// the notch is enough, and pointing at the island's visible body
+    /// or just under its lip also counts — users aim at what they see,
+    /// not at the strip above it.
+    private func collapsedZone(on screen: NSScreen) -> NSRect {
+        hoverZone(
+            on: screen,
+            width: viewModel.notchSize.width + 160,
+            height: viewModel.notchSize.height + 26
+        )
+    }
+
+    private func expandedZone(on screen: NSScreen) -> NSRect {
+        let preset = UserDefaults.standard
+            .string(forKey: "expandedSizePreset") ?? "compact"
+        let size = NotchViewModel.expandedSize(for: preset)
+        return hoverZone(on: screen, width: size.width + 28, height: size.height + 16)
+    }
+
+    /// A rect hanging from the top-center of the screen, in the global
+    /// bottom-left coordinate space mouseLocation uses.
+    private func hoverZone(on screen: NSScreen, width: CGFloat, height: CGFloat) -> NSRect {
+        NSRect(
+            x: screen.frame.midX - width / 2,
+            y: screen.frame.maxY - height,
+            width: width,
+            height: height
+        )
+    }
+
+    deinit {
+        if let clickMonitor {
+            NSEvent.removeMonitor(clickMonitor)
+        }
+        hoverTimer?.invalidate()
+    }
+}

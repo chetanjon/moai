@@ -271,10 +271,19 @@ struct NotchRootView: View {
                 }
                 .padding(.leading, Theme.Space.wingInset)
             } else if timer.isActive {
-                Text(timer.display)
-                    .font(Theme.Fonts.labelMono)
-                    .foregroundStyle(Theme.textPrimary)
-                    .padding(.leading, Theme.Space.wingInset)
+                HStack(spacing: 5) {
+                    ProgressRing(
+                        progress: timer.progress,
+                        size: 11,
+                        lineWidth: 1.5,
+                        tint: accent,
+                        trackOpacity: 0.15
+                    )
+                    Text(timer.display)
+                        .font(Theme.Fonts.labelMono)
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .padding(.leading, Theme.Space.wingInset)
             } else if music.nowPlaying?.isPlaying == true {
                 Image(systemName: "waveform")
                     .font(Theme.Fonts.icon(.s))

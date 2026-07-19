@@ -5,9 +5,17 @@ final class CountdownController: ObservableObject {
     @Published var remaining = 0
     @Published var isActive = false
     private var timer: Timer?
+    private var total = 0
+
+    /// 0...1 through the countdown, for the shared ring treatment.
+    var progress: Double {
+        guard total > 0 else { return 0 }
+        return 1 - Double(remaining) / Double(total)
+    }
 
     func start(minutes: Int) {
         remaining = max(1, minutes) * 60
+        total = remaining
         isActive = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in

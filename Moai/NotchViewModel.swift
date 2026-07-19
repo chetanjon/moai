@@ -16,9 +16,18 @@ final class NotchViewModel: ObservableObject {
         case links
     }
 
+    /// Utility panes slide over the content as a single drawer:
+    /// only one can be open, and collapsing always closes it.
+    enum Pane {
+        case none
+        case focus
+        case settings
+    }
+
     @Published var state: IslandState = .collapsed
     @Published var isHovering = false
     @Published var tab: Tab = .ask
+    @Published var pane: Pane = .none
 
     /// Draft text in the Do box. Lives here so clipboard and shelf
     /// actions can hand content to the Do surface.
@@ -94,6 +103,9 @@ final class NotchViewModel: ObservableObject {
     func collapse() {
         guard state == .expanded else { return }
         state = .collapsed
+        // Model-held pane state doesn't reset with the view tree the
+        // way @State did — the island must always reopen to content.
+        pane = .none
         onExpandChange?(false)
     }
 
@@ -125,7 +137,7 @@ final class NotchViewModel: ObservableObject {
             guard let self else { return }
             guard self.state == .expanded, !self.isHovering,
                   !self.isWorking, self.draftPrompt.isEmpty,
-                  self.pendingContext == nil else { return }
+                  self.pendingContext == nil, self.pane == .none else { return }
             self.collapse()
         }
         hoverCollapseWork = work

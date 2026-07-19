@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// The pomodoro home: presets when idle, and while a session runs, a
-/// progress ring, the countdown, round dots, noise, and transport.
+/// The countdown home: pomodoro presets and a plain timer when idle;
+/// while either runs, a progress ring, the countdown, and controls.
 struct FocusPanel: View {
     @ObservedObject var focus: FocusController
+    @ObservedObject var timer: CountdownController
     @Environment(\.moaiAccent) private var accent
 
     var body: some View {
         if focus.isActive {
             activeCard
+        } else if timer.isActive {
+            timerCard
         } else {
             presets
         }
@@ -31,8 +34,68 @@ struct FocusPanel: View {
                 .font(Theme.Fonts.body)
                 .foregroundStyle(Theme.textHint)
                 .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Theme.Space.m) {
+                Text("Just a timer")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textTertiary)
+                ForEach([5, 10, 20], id: \.self) { minutes in
+                    timerChip(minutes)
+                }
+            }
+            .padding(.top, Theme.Space.xs)
             Spacer(minLength: 0)
         }
+    }
+
+    private func timerChip(_ minutes: Int) -> some View {
+        Button {
+            timer.start(minutes: minutes)
+        } label: {
+            Text("\(minutes) min")
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.horizontal, Theme.Space.m)
+                .frame(minHeight: 22)
+                .background(Capsule().fill(Theme.surface))
+                .overlay(Capsule().strokeBorder(Theme.hairlineFaint, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    // MARK: Plain timer running
+
+    private var timerCard: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.xl) {
+            HStack(spacing: Theme.Space.xl) {
+                ProgressRing(
+                    progress: timer.progress,
+                    size: 54,
+                    lineWidth: 3,
+                    tint: accent,
+                    trackOpacity: 0.08
+                ) {
+                    Image(systemName: "timer")
+                        .font(Theme.Fonts.icon(.m))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("TIMER")
+                        .font(Theme.Fonts.micro)
+                        .tracking(1.3)
+                        .foregroundStyle(accent)
+                    Text(timer.display)
+                        .font(Theme.Fonts.display)
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                Spacer()
+                CloseButton(scale: .s) {
+                    timer.stop()
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, Theme.Space.xs)
     }
 
     private func presetChip(_ minutes: Int) -> some View {

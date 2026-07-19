@@ -13,6 +13,7 @@ targets:
       properties:
         LSUIElement: true
         NSHighResolutionCapable: true
+        CFBundleIconFile: AppIcon
         CFBundleDisplayName: Moai
         NSAppleEventsUsageDescription: Moai controls Spotify and Apple Music playback from the notch.
         NSMicrophoneUsageDescription: Hold the notch to talk. Audio is processed on this Mac only.

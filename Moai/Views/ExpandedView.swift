@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 struct ExpandedView: View {
@@ -24,6 +25,7 @@ struct ExpandedView: View {
 
     @Environment(\.moaiAccent) private var accent
     @State private var showSettings = false
+    @State private var launchAtLogin = false
     @FocusState private var inputFocused: Bool
     @Namespace private var tabNS
 
@@ -191,6 +193,17 @@ struct ExpandedView: View {
                     toggleRow("Open on hover", $expandOnHover)
                     toggleRow("Show edge when idle", $idleEdgeOn)
                     toggleRow("Battery in the notch", $batteryWingOn)
+                    toggleRow("Start at login", Binding(
+                        get: { launchAtLogin },
+                        set: { enabled in
+                            launchAtLogin = enabled
+                            if enabled {
+                                try? SMAppService.mainApp.register()
+                            } else {
+                                try? SMAppService.mainApp.unregister()
+                            }
+                        }
+                    ))
                     settingRow("Open") {
                         Picker("", selection: $openDelay) {
                             Text("Instant").tag(0.0)
@@ -262,7 +275,10 @@ struct ExpandedView: View {
             }
             .padding(.bottom, 8)
         }
-        .onAppear { apiKey = KeychainStore.read("anthropicKey") ?? "" }
+        .onAppear {
+            apiKey = KeychainStore.read("anthropicKey") ?? ""
+            launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
         .onDisappear { KeychainStore.write(apiKey, account: "anthropicKey") }
     }
 

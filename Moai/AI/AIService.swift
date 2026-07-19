@@ -47,10 +47,22 @@ enum AIProvider: String, CaseIterable {
             ?? .claude
     }
 
+    /// Providers worth offering: only those with a key on file. With
+    /// no keys at all, show everything — the chip stays discoverable
+    /// and the keyless hint explains what's missing.
+    static var available: [AIProvider] {
+        let keyed = allCases.filter {
+            !(KeychainStore.read($0.keychainAccount) ?? "").isEmpty
+        }
+        return keyed.isEmpty ? allCases : keyed
+    }
+
     var next: AIProvider {
-        let all = AIProvider.allCases
-        let index = all.firstIndex(of: self) ?? 0
-        return all[(index + 1) % all.count]
+        let pool = AIProvider.available
+        guard let index = pool.firstIndex(of: self) else {
+            return pool.first ?? .claude
+        }
+        return pool[(index + 1) % pool.count]
     }
 }
 

@@ -19,6 +19,7 @@ struct ExpandedView: View {
     @AppStorage("sweepOn") private var sweepOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
+    @AppStorage("batteryWingOn") private var batteryWingOn = true
     @AppStorage("accentMode") private var accentMode = "album"
 
     @Environment(\.moaiAccent) private var accent
@@ -189,6 +190,7 @@ struct ExpandedView: View {
                     }
                     toggleRow("Open on hover", $expandOnHover)
                     toggleRow("Show edge when idle", $idleEdgeOn)
+                    toggleRow("Battery in the notch", $batteryWingOn)
                     settingRow("Open") {
                         Picker("", selection: $openDelay) {
                             Text("Instant").tag(0.0)

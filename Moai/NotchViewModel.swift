@@ -39,6 +39,7 @@ final class NotchViewModel: ObservableObject {
     let timer = CountdownController()
     let focus = FocusController()
     let voice = VoiceController()
+    let stats = SystemStatsController()
     private(set) lazy var engine = ActionEngine(model: self)
 
     /// Default pill for notch-less displays, so Moai works on any Mac.
@@ -69,6 +70,7 @@ final class NotchViewModel: ObservableObject {
     func start() {
         music.start()
         clipboard.start()
+        stats.start()
     }
 
     func expand() {

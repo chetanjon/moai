@@ -7,6 +7,7 @@ struct NotchRootView: View {
     @ObservedObject var timer: CountdownController
     @ObservedObject var focus: FocusController
     @ObservedObject var voice: VoiceController
+    @ObservedObject var stats: SystemStatsController
     @State private var isDropTargeted = false
     @State private var pressStarted: Date?
     @State private var sweepAngle = 0.0
@@ -20,6 +21,7 @@ struct NotchRootView: View {
     @AppStorage("sweepOn") private var sweepOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
+    @AppStorage("batteryWingOn") private var batteryWingOn = true
     @AppStorage("accentMode") private var accentMode = "album"
 
     /// This view injects the accent into the environment for everything
@@ -35,14 +37,19 @@ struct NotchRootView: View {
         self.timer = model.timer
         self.focus = model.focus
         self.voice = model.voice
+        self.stats = model.stats
     }
 
     private var hasLeftWing: Bool {
         focus.isActive || timer.isActive || music.nowPlaying?.isPlaying == true
     }
 
+    private var batteryVisible: Bool {
+        batteryWingOn && stats.battery != nil
+    }
+
     private var statusWings: CGFloat {
-        hasLeftWing ? 88 : 0
+        (hasLeftWing ? 88 : 0) + (batteryVisible ? 34 : 0)
     }
 
     /// Stable per-state sizes: content is framed to its own state's
@@ -290,7 +297,19 @@ struct NotchRootView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(model.isHovering ? Theme.textSecondary : Theme.textTertiary)
                     .symbolEffect(.bounce, value: model.isHovering)
-                    .padding(.trailing, 12)
+                    .padding(.trailing, batteryVisible ? 6 : 12)
+            }
+            if batteryVisible, let battery = stats.battery {
+                HStack(spacing: 2) {
+                    if battery.charging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 8, weight: .semibold))
+                    }
+                    Text("\(battery.level)%")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                }
+                .foregroundStyle(battery.level <= 20 && !battery.charging ? accent : Theme.textTertiary)
+                .padding(.trailing, 11)
             }
         }
     }

@@ -111,7 +111,7 @@ enum Theme {
             switch Feel.current {
             case .still: return .spring(response: 0.42, dampingFraction: 1.0)
             case .serene: return .spring(response: 0.45, dampingFraction: 0.92)
-            case .balanced: return .spring(response: 0.38, dampingFraction: 0.82)
+            case .balanced: return .spring(response: 0.40, dampingFraction: 0.86)
             case .lively: return .spring(response: 0.38, dampingFraction: 0.72)
             }
         }
@@ -135,25 +135,6 @@ enum Theme {
         }
 
         static let accent = Animation.easeInOut(duration: 1.0)
-
-        /// Rim light on expand: slower and fainter the calmer the feel.
-        static var sweepDuration: Double {
-            switch Feel.current {
-            case .still: return 0
-            case .serene: return 1.5
-            case .balanced: return 1.1
-            case .lively: return 0.9
-            }
-        }
-
-        static var sweepPeak: Double {
-            switch Feel.current {
-            case .still: return 0
-            case .serene: return 0.45
-            case .balanced: return 0.7
-            case .lively: return 0.9
-            }
-        }
 
         /// Ambient loops (aurora drift, glow breath) stretch by this factor.
         static var ambientSlow: Double {

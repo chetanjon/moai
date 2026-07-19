@@ -17,7 +17,6 @@ struct ExpandedView: View {
     @AppStorage("collapseDelay") private var collapseDelay = 0.05
     @AppStorage("motionFeel") private var motionFeel = "serene"
     @AppStorage("auroraOn") private var auroraOn = true
-    @AppStorage("sweepOn") private var sweepOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("batteryWingOn") private var batteryWingOn = true
@@ -241,7 +240,6 @@ struct ExpandedView: View {
                         .frame(width: 236)
                     }
                     toggleRow("Aurora in the glass", $auroraOn)
-                    toggleRow("Edge light on open", $sweepOn)
                     toggleRow("Glow with music", $glowOn)
                 }
                 settingsSection("Accent") {

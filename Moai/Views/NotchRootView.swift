@@ -10,15 +10,12 @@ struct NotchRootView: View {
     @ObservedObject var stats: SystemStatsController
     @State private var isDropTargeted = false
     @State private var pressStarted: Date?
-    @State private var sweepAngle = 0.0
-    @State private var sweepOpacity = 0.0
 
     @AppStorage("expandedSizePreset") private var sizePreset = "compact"
     // Declared so the view re-renders (and re-reads Theme.Motion) the
     // moment the user changes the feel in settings.
     @AppStorage("motionFeel") private var motionFeel = "serene"
     @AppStorage("auroraOn") private var auroraOn = true
-    @AppStorage("sweepOn") private var sweepOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("batteryWingOn") private var batteryWingOn = true
@@ -95,14 +92,6 @@ struct NotchRootView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                // A soft accent glow breathes under the notch while
-                // music plays and the island is closed.
-                if glowOn, motionFeel != "still", model.state == .collapsed,
-                   music.nowPlaying?.isPlaying == true {
-                    breathingGlow
-                        .transition(.opacity)
-                }
-
                 // The droplet clings to the top edge of the screen; its
                 // meniscus shoulders keep it flush with the notch.
                 // One constant fill + an opacity-animated black layer:
@@ -148,28 +137,34 @@ struct NotchRootView: View {
                             .strokeBorder(Theme.lipLight, lineWidth: 1)
                             .opacity(idleEdgeOn && model.state == .collapsed ? 1 : 0)
                     )
-                    // One-shot light sweep around the rim on expand.
-                    .overlay(
-                        islandShape
-                            .strokeBorder(
-                                AngularGradient(
-                                    colors: [.clear, .clear, .white.opacity(0.55), .clear, .clear],
-                                    center: .center,
-                                    angle: .degrees(sweepAngle - 90)
-                                ),
-                                lineWidth: 1.5
-                            )
-                            .opacity(sweepOpacity)
+                    // Breathing accent ring: idle life on the edges when
+                    // music or a timer is going. Intensity breathes in
+                    // place — nothing travels along the border.
+                    .overlay {
+                        if glowOn, motionFeel != "still",
+                           model.state == .collapsed, hasLeftWing {
+                            TimelineView(.animation(minimumInterval: 1 / 15)) { context in
+                                let t = context.date.timeIntervalSinceReferenceDate
+                                let breath = 0.5 + 0.5 * sin(t / (1.6 * Theme.Motion.ambientSlow))
+                                ZStack {
+                                    islandShape
+                                        .strokeBorder(accent.opacity(0.05 + 0.08 * breath), lineWidth: 4)
+                                    islandShape
+                                        .strokeBorder(accent.opacity(0.16 + 0.20 * breath), lineWidth: 1.5)
+                                }
+                            }
                             .allowsHitTesting(false)
-                    )
+                            .transition(.opacity)
+                        }
+                    }
                     .overlay(
                         islandShape
                             .strokeBorder(accent.opacity(0.8), lineWidth: 1.5)
                             .opacity(isDropTargeted ? 1 : 0)
                     )
                     .shadow(
-                        color: Color.black.opacity(model.state == .collapsed ? 0 : 0.5),
-                        radius: 22, y: 8
+                        color: Color.black.opacity(model.state == .collapsed ? 0 : 0.45),
+                        radius: 14, y: 7
                     )
 
                 contentLayer
@@ -205,19 +200,6 @@ struct NotchRootView: View {
             .animation(Theme.Motion.island, value: model.state)
             .animation(Theme.Motion.hover, value: model.isHovering)
             .animation(Theme.Motion.hover, value: statusWings)
-            .onChange(of: model.state) { _, newState in
-                guard sweepOn, Theme.Feel.current.ambient, newState == .expanded
-                else { return }
-                let duration = Theme.Motion.sweepDuration
-                sweepAngle = 0
-                sweepOpacity = Theme.Motion.sweepPeak
-                withAnimation(.easeInOut(duration: duration)) {
-                    sweepAngle = 360
-                }
-                withAnimation(.easeOut(duration: 0.6).delay(duration * 0.6)) {
-                    sweepOpacity = 0
-                }
-            }
 
             Spacer(minLength: 0)
         }
@@ -263,21 +245,6 @@ struct NotchRootView: View {
             insertion: .opacity.animation(.easeIn(duration: 0.22).delay(insertionDelay)),
             removal: .opacity.animation(.easeOut(duration: 0.1))
         )
-    }
-
-    /// Soft accent ellipse under the collapsed island, slowly rising
-    /// and falling while a track plays.
-    private var breathingGlow: some View {
-        TimelineView(.animation(minimumInterval: 1 / 12)) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            Ellipse()
-                .fill(accent)
-                .frame(width: islandSize.width * 0.9, height: 14)
-                .blur(radius: 12)
-                .opacity(0.10 + 0.08 * (0.5 + 0.5 * sin(t / (1.8 * Theme.Motion.ambientSlow))))
-                .offset(y: islandSize.height - 5)
-        }
-        .allowsHitTesting(false)
     }
 
     /// Wings beside the physical notch: countdown or waveform left,

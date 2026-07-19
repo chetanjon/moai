@@ -273,6 +273,9 @@ struct AIService {
                 "contents": [
                     ["role": "user", "parts": [["text": prompt]]]
                 ],
+                // Google Search grounding: live answers (scores, news,
+                // prices) instead of "I can't check that".
+                "tools": [["google_search": [String: Any]()]],
             ]
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

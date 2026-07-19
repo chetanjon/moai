@@ -20,6 +20,10 @@ final class NotchWindowController {
     /// not just cross it.
     private var openIntentWork: DispatchWorkItem?
     private var lastOpenAt = Date.distantPast
+    /// Set when the island collapses with the pointer still in the open
+    /// zone (dismissed via click-away, or a slow leave) — the pointer
+    /// must leave once before hover can reopen, or it bounces.
+    private var requiresExitBeforeReopen = false
     let viewModel = NotchViewModel()
 
     /// Ignore hover-out this soon after opening, so nothing can cycle.
@@ -147,7 +151,9 @@ final class NotchWindowController {
         switch viewModel.state {
         case .collapsed:
             if collapsedZone(on: screen).contains(location) {
-                guard !pointerInside, openIntentWork == nil else { return }
+                // Level-triggered on entry: presence in the zone is enough.
+                // No stale-flag path may block a fresh hover from opening.
+                guard !requiresExitBeforeReopen, openIntentWork == nil else { return }
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.openIntentWork = nil
@@ -156,13 +162,13 @@ final class NotchWindowController {
                           let screen = self.notchScreen,
                           self.collapsedZone(on: screen).contains(NSEvent.mouseLocation)
                     else { return }
-                    self.pointerInside = true
                     self.lastOpenAt = Date()
                     self.viewModel.hoverChanged(true)
                 }
                 openIntentWork = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + openDwell, execute: work)
             } else {
+                requiresExitBeforeReopen = false
                 openIntentWork?.cancel()
                 openIntentWork = nil
                 if pointerInside {
@@ -193,6 +199,12 @@ final class NotchWindowController {
         switch newState {
         case .collapsed:
             pointerInside = false
+            // If the pointer is still in the open zone at collapse time,
+            // don't instantly reopen — wait for one exit first.
+            if let screen = notchScreen {
+                requiresExitBeforeReopen = collapsedZone(on: screen)
+                    .contains(NSEvent.mouseLocation)
+            }
         case .expanded:
             lastOpenAt = Date()
             if let screen = notchScreen {

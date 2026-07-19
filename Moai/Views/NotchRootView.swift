@@ -112,11 +112,18 @@ struct NotchRootView: View {
                             : AnyShapeStyle(Theme.backdrop)
                     )
                     // Album-colored aurora drifting inside the glass.
+                    // Fades out fast on close — a slow fade inside the
+                    // shrinking clip reads as shimmer.
                     .overlay {
                         if auroraOn, motionFeel != "still", model.state != .collapsed {
                             AuroraView(accent: accent)
                                 .clipShape(islandShape)
-                                .transition(.opacity)
+                                .transition(
+                                    .asymmetric(
+                                        insertion: .opacity.animation(.easeIn(duration: 0.4)),
+                                        removal: .opacity.animation(.easeOut(duration: 0.1))
+                                    )
+                                )
                         }
                     }
                     // Top-lit glass edge; brighter where light would catch it.
@@ -220,15 +227,17 @@ struct NotchRootView: View {
     private var contentLayer: some View {
         ZStack(alignment: .top) {
             if model.state == .collapsed {
+                // Wings and battery wait for the shell to mostly settle,
+                // then fade in — appearing mid-shrink reads as flicker.
                 collapsedContent
                     .frame(width: collapsedSize.width, height: collapsedSize.height)
-                    .transition(contentTransition)
+                    .transition(contentTransition(insertionDelay: 0.28))
             }
 
             if model.state == .listening {
                 listeningContent
                     .frame(width: Self.listeningSize.width, height: Self.listeningSize.height)
-                    .transition(contentTransition)
+                    .transition(contentTransition(insertionDelay: 0.09))
             }
 
             if model.state == .expanded {
@@ -237,16 +246,16 @@ struct NotchRootView: View {
                         width: NotchViewModel.expandedSize(for: sizePreset).width,
                         height: NotchViewModel.expandedSize(for: sizePreset).height
                     )
-                    .transition(contentTransition)
+                    .transition(contentTransition(insertionDelay: 0.09))
             }
         }
         .frame(width: islandSize.width, height: islandSize.height, alignment: .top)
         .clipShape(islandShape)
     }
 
-    private var contentTransition: AnyTransition {
+    private func contentTransition(insertionDelay: Double) -> AnyTransition {
         .asymmetric(
-            insertion: .opacity.animation(.easeIn(duration: 0.22).delay(0.09)),
+            insertion: .opacity.animation(.easeIn(duration: 0.22).delay(insertionDelay)),
             removal: .opacity.animation(.easeOut(duration: 0.1))
         )
     }

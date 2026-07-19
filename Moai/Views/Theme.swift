@@ -36,9 +36,10 @@ enum Theme {
 
     /// Bottom-lit lip so the collapsed droplet reads against the pure
     /// black strip of fullscreen apps; strongest where the belly hangs.
+    /// Deliberately faint — findable, never announcing itself.
     static var lipLight: LinearGradient {
         LinearGradient(
-            colors: [Color.white.opacity(0), Color.white.opacity(0.20)],
+            colors: [Color.white.opacity(0), Color.white.opacity(0.10)],
             startPoint: .top,
             endPoint: .bottom
         )

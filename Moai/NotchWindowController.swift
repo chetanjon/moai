@@ -148,30 +148,9 @@ final class NotchWindowController {
         NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main
     }
 
-    // MARK: Temporary hover diagnostics (remove after field debugging)
-
-    private var tickCount = 0
-
-    private func diag(_ message: String) {
-        let line = String(format: "%.2f %@\n", Date().timeIntervalSince1970, message)
-        let path = "/tmp/moai-diag.log"
-        if let handle = FileHandle(forWritingAtPath: path) {
-            handle.seekToEndOfFile()
-            handle.write(Data(line.utf8))
-            try? handle.close()
-        } else {
-            try? line.write(toFile: path, atomically: true, encoding: .utf8)
-        }
-    }
-
     private func pointerMoved() {
         guard let screen = notchScreen else { return }
         let location = NSEvent.mouseLocation
-        tickCount += 1
-        if tickCount % 20 == 0 {
-            let inZone = collapsedZone(on: screen).contains(location)
-            diag("tick state=\(viewModel.state) loc=(\(Int(location.x)),\(Int(location.y))) inCollapsedZone=\(inZone) work=\(openIntentWork != nil)")
-        }
         switch viewModel.state {
         case .collapsed:
             if collapsedZone(on: screen).contains(location) {
@@ -179,7 +158,6 @@ final class NotchWindowController {
                 // No stale-flag path may block a fresh hover from opening.
                 guard Date().timeIntervalSince(lastCollapseAt) > reopenCooldown,
                       openIntentWork == nil else { return }
-                diag("dwell scheduled, loc=(\(Int(location.x)),\(Int(location.y)))")
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.openIntentWork = nil
@@ -187,11 +165,7 @@ final class NotchWindowController {
                     guard self.viewModel.state == .collapsed,
                           let screen = self.notchScreen,
                           self.collapsedZone(on: screen).contains(NSEvent.mouseLocation)
-                    else {
-                        self.diag("dwell fizzled: state=\(self.viewModel.state) loc=\(NSEvent.mouseLocation)")
-                        return
-                    }
-                    self.diag("dwell fired -> open")
+                    else { return }
                     self.lastOpenAt = Date()
                     self.viewModel.hoverChanged(true)
                 }
@@ -212,7 +186,6 @@ final class NotchWindowController {
             guard inside != pointerInside else { return }
             // Freshly opened islands don't close; kills any fast cycle.
             if !inside, Date().timeIntervalSince(lastOpenAt) < minimumOpen { return }
-            diag("expanded containment -> \(inside), loc=(\(Int(location.x)),\(Int(location.y)))")
             pointerInside = inside
             viewModel.hoverChanged(inside)
         case .listening:
@@ -226,7 +199,6 @@ final class NotchWindowController {
     private func stateChanged(_ newState: NotchViewModel.IslandState) {
         openIntentWork?.cancel()
         openIntentWork = nil
-        diag("state -> \(newState)")
         switch newState {
         case .collapsed:
             pointerInside = false

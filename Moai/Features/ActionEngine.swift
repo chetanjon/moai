@@ -47,8 +47,17 @@ final class ActionEngine {
         }
 
         // Reminders. Prefix verbs are unambiguous, so they run before
-        // the fuzzy contains() branches below can hijack them.
-        for prefix in ["remind me to ", "remind me ", "remind "] where lower.hasPrefix(prefix) {
+        // the fuzzy contains() branches below can hijack them. Spoken
+        // phrasing varies — "set a reminder for X" must work as well as
+        // "remind me to X".
+        let reminderPrefixes = [
+            "remind me to ", "remind me ", "remind ",
+            "set a reminder ", "set reminder ",
+            "add a reminder ", "add reminder ",
+            "create a reminder ", "make a reminder ",
+            "new reminder ", "reminder ",
+        ]
+        for prefix in reminderPrefixes where lower.hasPrefix(prefix) {
             var rest = String(text.dropFirst(prefix.count))
                 .trimmingCharacters(in: .whitespaces)
             var due: Date?
@@ -56,8 +65,11 @@ final class ActionEngine {
                 due = date
                 rest = Self.removing(range, from: rest)
             }
-            if rest.lowercased().hasPrefix("to ") {
-                rest = String(rest.dropFirst(3))
+            for connector in ["to ", "for ", "about ", "that "]
+            where rest.lowercased().hasPrefix(connector) {
+                rest = String(rest.dropFirst(connector.count))
+                    .trimmingCharacters(in: .whitespaces)
+                break
             }
             guard !rest.isEmpty else { return "Remind you to what?" }
             return await model.events.addReminder(rest, due: due)

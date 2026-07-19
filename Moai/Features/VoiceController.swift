@@ -6,6 +6,9 @@ import SwiftUI
 final class VoiceController: NSObject, ObservableObject {
     @Published var transcript = ""
     @Published var level: CGFloat = 0
+    /// Why nothing was heard, when the answer is a permission or
+    /// availability problem rather than silence.
+    @Published var failure: String?
 
     private let audioEngine = AVAudioEngine()
     private let recognizer = SFSpeechRecognizer()
@@ -16,6 +19,26 @@ final class VoiceController: NSObject, ObservableObject {
         SFSpeechRecognizer.requestAuthorization { _ in }
         transcript = ""
         level = 0
+        failure = nil
+
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .denied, .restricted:
+            failure = "Speech recognition is off. System Settings, Privacy, Speech Recognition."
+            return
+        default:
+            break
+        }
+        guard let recognizer, recognizer.isAvailable else {
+            failure = "Speech recognition isn't available right now."
+            return
+        }
+        // Audio stays on this Mac, as promised — so if the on-device
+        // model for this language isn't installed, say so instead of
+        // failing silently.
+        guard recognizer.supportsOnDeviceRecognition else {
+            failure = "On-device speech isn't available for your language yet."
+            return
+        }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
@@ -40,9 +63,15 @@ final class VoiceController: NSObject, ObservableObject {
         }
 
         audioEngine.prepare()
-        try? audioEngine.start()
+        do {
+            try audioEngine.start()
+        } catch {
+            failure = "Mic didn't start. System Settings, Privacy, Microphone."
+            audioEngine.inputNode.removeTap(onBus: 0)
+            return
+        }
 
-        task = recognizer?.recognitionTask(with: request) { [weak self] result, _ in
+        task = recognizer.recognitionTask(with: request) { [weak self] result, _ in
             guard let result else { return }
             let text = result.bestTranscription.formattedString
             Task { @MainActor in

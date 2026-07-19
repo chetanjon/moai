@@ -31,7 +31,14 @@ final class EventKitService {
         }
         let reminder = EKReminder(eventStore: store)
         reminder.title = title
-        reminder.calendar = store.defaultCalendarForNewReminders()
+        // No default list is a real configuration on Macs without
+        // iCloud Reminders — fall back to any writable list.
+        guard let calendar = store.defaultCalendarForNewReminders()
+            ?? store.calendars(for: .reminder).first(where: { $0.allowsContentModifications })
+        else {
+            return "No Reminders list to save into. Open the Reminders app once, then retry."
+        }
+        reminder.calendar = calendar
         if let due {
             reminder.dueDateComponents = Calendar.current.dateComponents(
                 [.year, .month, .day, .hour, .minute], from: due
@@ -41,7 +48,7 @@ final class EventKitService {
         do {
             try store.save(reminder, commit: true)
         } catch {
-            return "Couldn't save that."
+            return "Couldn't save that. \(error.localizedDescription)"
         }
         if let due {
             return "Set. \(Self.formatter.string(from: due))."
@@ -57,11 +64,16 @@ final class EventKitService {
         event.title = title
         event.startDate = start
         event.endDate = start.addingTimeInterval(3600)
-        event.calendar = store.defaultCalendarForNewEvents
+        guard let calendar = store.defaultCalendarForNewEvents
+            ?? store.calendars(for: .event).first(where: { $0.allowsContentModifications })
+        else {
+            return "No calendar to save into. Open the Calendar app once, then retry."
+        }
+        event.calendar = calendar
         do {
             try store.save(event, span: .thisEvent)
         } catch {
-            return "Couldn't save that."
+            return "Couldn't save that. \(error.localizedDescription)"
         }
         return "On the calendar. \(Self.formatter.string(from: start))."
     }

@@ -149,7 +149,8 @@ final class NotchViewModel: ObservableObject {
             self.state = .expanded
             self.onExpandChange?(true)
             if spoken.isEmpty {
-                self.answer = "Heard nothing. Hold a beat longer next time."
+                self.answer = self.voice.failure
+                    ?? "Heard nothing. Hold a beat longer next time."
             } else {
                 self.submit(spoken)
             }

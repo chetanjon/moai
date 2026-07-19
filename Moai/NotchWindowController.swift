@@ -20,10 +20,13 @@ final class NotchWindowController {
     /// not just cross it.
     private var openIntentWork: DispatchWorkItem?
     private var lastOpenAt = Date.distantPast
-    /// Set when the island collapses with the pointer still in the open
-    /// zone (dismissed via click-away, or a slow leave) — the pointer
-    /// must leave once before hover can reopen, or it bounces.
-    private var requiresExitBeforeReopen = false
+    /// Brief cooldown after any collapse so the island can't bounce
+    /// straight back open while the pointer lingers near the notch.
+    /// (An exit-before-reopen rule was tried instead and field-failed:
+    /// it armed at launch and blocked hover for anyone who parks the
+    /// pointer near the notch — see 2026-07-18 diagnostics.)
+    private var lastCollapseAt = Date.distantPast
+    private let reopenCooldown: TimeInterval = 0.6
     let viewModel = NotchViewModel()
 
     /// Ignore hover-out this soon after opening, so nothing can cycle.
@@ -145,15 +148,38 @@ final class NotchWindowController {
         NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.main
     }
 
+    // MARK: Temporary hover diagnostics (remove after field debugging)
+
+    private var tickCount = 0
+
+    private func diag(_ message: String) {
+        let line = String(format: "%.2f %@\n", Date().timeIntervalSince1970, message)
+        let path = "/tmp/moai-diag.log"
+        if let handle = FileHandle(forWritingAtPath: path) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? line.write(toFile: path, atomically: true, encoding: .utf8)
+        }
+    }
+
     private func pointerMoved() {
         guard let screen = notchScreen else { return }
         let location = NSEvent.mouseLocation
+        tickCount += 1
+        if tickCount % 20 == 0 {
+            let inZone = collapsedZone(on: screen).contains(location)
+            diag("tick state=\(viewModel.state) loc=(\(Int(location.x)),\(Int(location.y))) inCollapsedZone=\(inZone) work=\(openIntentWork != nil)")
+        }
         switch viewModel.state {
         case .collapsed:
             if collapsedZone(on: screen).contains(location) {
                 // Level-triggered on entry: presence in the zone is enough.
                 // No stale-flag path may block a fresh hover from opening.
-                guard !requiresExitBeforeReopen, openIntentWork == nil else { return }
+                guard Date().timeIntervalSince(lastCollapseAt) > reopenCooldown,
+                      openIntentWork == nil else { return }
+                diag("dwell scheduled, loc=(\(Int(location.x)),\(Int(location.y)))")
                 let work = DispatchWorkItem { [weak self] in
                     guard let self else { return }
                     self.openIntentWork = nil
@@ -161,14 +187,17 @@ final class NotchWindowController {
                     guard self.viewModel.state == .collapsed,
                           let screen = self.notchScreen,
                           self.collapsedZone(on: screen).contains(NSEvent.mouseLocation)
-                    else { return }
+                    else {
+                        self.diag("dwell fizzled: state=\(self.viewModel.state) loc=\(NSEvent.mouseLocation)")
+                        return
+                    }
+                    self.diag("dwell fired -> open")
                     self.lastOpenAt = Date()
                     self.viewModel.hoverChanged(true)
                 }
                 openIntentWork = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + openDwell, execute: work)
             } else {
-                requiresExitBeforeReopen = false
                 openIntentWork?.cancel()
                 openIntentWork = nil
                 if pointerInside {
@@ -183,6 +212,7 @@ final class NotchWindowController {
             guard inside != pointerInside else { return }
             // Freshly opened islands don't close; kills any fast cycle.
             if !inside, Date().timeIntervalSince(lastOpenAt) < minimumOpen { return }
+            diag("expanded containment -> \(inside), loc=(\(Int(location.x)),\(Int(location.y)))")
             pointerInside = inside
             viewModel.hoverChanged(inside)
         case .listening:
@@ -196,15 +226,11 @@ final class NotchWindowController {
     private func stateChanged(_ newState: NotchViewModel.IslandState) {
         openIntentWork?.cancel()
         openIntentWork = nil
+        diag("state -> \(newState)")
         switch newState {
         case .collapsed:
             pointerInside = false
-            // If the pointer is still in the open zone at collapse time,
-            // don't instantly reopen — wait for one exit first.
-            if let screen = notchScreen {
-                requiresExitBeforeReopen = collapsedZone(on: screen)
-                    .contains(NSEvent.mouseLocation)
-            }
+            lastCollapseAt = Date()
         case .expanded:
             lastOpenAt = Date()
             if let screen = notchScreen {
@@ -235,13 +261,16 @@ final class NotchWindowController {
     }
 
     /// A rect hanging from the top-center of the screen, in the global
-    /// bottom-left coordinate space mouseLocation uses.
+    /// bottom-left coordinate space mouseLocation uses. Extends past the
+    /// top edge: a cursor pinned to the top reports y == maxY exactly,
+    /// and NSRect.contains excludes its max edge — without the overhang,
+    /// hovering the notch itself counts as "outside".
     private func hoverZone(on screen: NSScreen, width: CGFloat, height: CGFloat) -> NSRect {
         NSRect(
             x: screen.frame.midX - width / 2,
             y: screen.frame.maxY - height,
             width: width,
-            height: height
+            height: height + 20
         )
     }
 

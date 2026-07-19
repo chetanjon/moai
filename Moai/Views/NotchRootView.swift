@@ -105,11 +105,16 @@ struct NotchRootView: View {
 
                 // The droplet clings to the top edge of the screen; its
                 // meniscus shoulders keep it flush with the notch.
+                // One constant fill + an opacity-animated black layer:
+                // switching fill *styles* between states makes SwiftUI
+                // cross-fade the whole shape (a ghosted double image)
+                // instead of morphing it.
                 islandShape
-                    .fill(
-                        model.state == .collapsed
-                            ? AnyShapeStyle(Color.black)
-                            : AnyShapeStyle(Theme.backdrop)
+                    .fill(Theme.backdrop)
+                    .overlay(
+                        islandShape
+                            .fill(Color.black)
+                            .opacity(model.state == .collapsed ? 1 : 0)
                     )
                     // Album-colored aurora drifting inside the glass.
                     // Fades out fast on close — a slow fade inside the

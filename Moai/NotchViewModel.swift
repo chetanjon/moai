@@ -83,6 +83,10 @@ final class NotchViewModel: ObservableObject {
     /// Physical notch size measured by NotchWindowController.
     var notchSize = NotchViewModel.defaultNotchSize
 
+    /// True on the built-in display where hardware occupies the middle
+    /// of the island; external displays keep that space usable.
+    var hasPhysicalNotch = false
+
     /// Set by the window controller so the panel can grab key focus.
     var onExpandChange: ((Bool) -> Void)?
 

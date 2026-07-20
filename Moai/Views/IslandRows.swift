@@ -22,7 +22,7 @@ struct MusicRow: View {
                     artworkView(isPlaying: playing.isPlaying)
                 }
                 .buttonStyle(PressableStyle())
-                .help("Open \(playing.app.rawValue)")
+                .help("Open \(playing.source.displayName)")
 
                 VStack(alignment: .leading, spacing: Theme.Space.snug) {
                     HStack(spacing: Theme.Space.s) {
@@ -74,14 +74,16 @@ struct MusicRow: View {
 
                 VStack(spacing: Theme.Space.xs) {
                     HStack(spacing: Theme.Space.s) {
-                        HoverGlyphButton(
-                            symbol: "shuffle",
-                            scale: .xs,
-                            tint: playing.shuffling ? accent : Theme.textTertiary
-                        ) {
-                            music.toggleShuffle()
+                        if playing.supportsShuffle {
+                            HoverGlyphButton(
+                                symbol: "shuffle",
+                                scale: .xs,
+                                tint: playing.shuffling ? accent : Theme.textTertiary
+                            ) {
+                                music.toggleShuffle()
+                            }
+                            .help(playing.shuffling ? "Shuffle is on" : "Shuffle")
                         }
-                        .help(playing.shuffling ? "Shuffle is on" : "Shuffle")
                         HoverGlyphButton(symbol: "backward.fill", scale: .s, tint: Theme.textPrimary) {
                             music.previous()
                         }
@@ -130,6 +132,11 @@ struct MusicRow: View {
                         .tint(Color.white.opacity(0.5))
                         .frame(width: 68)
                     }
+                    .help(
+                        playing.source.scriptable == nil
+                            ? "System volume"
+                            : "\(playing.source.displayName) volume"
+                    )
                 }
             }
             .animation(Theme.Motion.content, value: playing.isPlaying)

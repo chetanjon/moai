@@ -27,7 +27,6 @@ struct SettingsPane: View {
     @AppStorage("auroraOn") private var auroraOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
-    @AppStorage("batteryWingOn") private var batteryWingOn = true
     @AppStorage("accentMode") private var accentMode = "album"
 
     @Environment(\.moaiAccent) private var accent
@@ -56,8 +55,6 @@ struct SettingsPane: View {
                     toggleRow("Open on hover", $expandOnHover)
                     divider
                     toggleRow("Show edge when idle", $idleEdgeOn)
-                    divider
-                    toggleRow("Battery in the notch", $batteryWingOn)
                     divider
                     toggleRow("Start at login", Binding(
                         get: { launchAtLogin },

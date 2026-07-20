@@ -17,7 +17,6 @@ struct NotchRootView: View {
     @AppStorage("auroraOn") private var auroraOn = true
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
-    @AppStorage("batteryWingOn") private var batteryWingOn = true
     @AppStorage("accentMode") private var accentMode = "album"
 
     /// This view injects the accent into the environment for everything
@@ -41,12 +40,8 @@ struct NotchRootView: View {
         focus.isActive || timer.isActive || music.nowPlaying?.isPlaying == true
     }
 
-    private var batteryVisible: Bool {
-        batteryWingOn && stats.battery != nil
-    }
-
     private var statusWings: CGFloat {
-        (hasLeftWing ? 88 : 0) + (batteryVisible ? 34 : 0)
+        hasLeftWing ? 88 : 0
     }
 
     /// Stable per-state sizes: content is framed to its own state's
@@ -283,9 +278,50 @@ struct NotchRootView: View {
         )
     }
 
-    /// Wings beside the physical notch: countdown or waveform left,
-    /// a live spark on the right.
+    /// Wings beside the notch, and, where no physical notch occupies
+    /// the middle (external displays), a quiet center: session phase,
+    /// the playing track, or the time.
     private var collapsedContent: some View {
+        ZStack {
+            if !model.hasPhysicalNotch {
+                middleContent
+                    .frame(maxWidth: max(
+                        60,
+                        collapsedSize.width - 2 * (statusWings + Theme.Space.wingInset + Theme.Space.m)
+                    ))
+            }
+            wingsContent
+        }
+    }
+
+    @ViewBuilder
+    private var middleContent: some View {
+        if focus.isActive {
+            Text(focus.phase == .work ? "FOCUS \(focus.roundInSet) OF 4" : "BREAK")
+                .font(Theme.Fonts.micro)
+                .tracking(1.3)
+                .foregroundStyle(Theme.textTertiary)
+        } else if timer.isActive {
+            Text("TIMER")
+                .font(Theme.Fonts.micro)
+                .tracking(1.3)
+                .foregroundStyle(Theme.textTertiary)
+        } else if let playing = music.nowPlaying, playing.isPlaying {
+            MarqueeText(title: playing.track, subtitle: playing.artist)
+                .id(playing.track)
+        } else {
+            TimelineView(.everyMinute) { context in
+                Text(
+                    context.date,
+                    format: .dateTime.hour(.defaultDigits(amPM: .omitted)).minute()
+                )
+                .font(Theme.Fonts.captionMono)
+                .foregroundStyle(Theme.textTertiary)
+            }
+        }
+    }
+
+    private var wingsContent: some View {
         HStack {
             if focus.isActive {
                 HStack(spacing: Theme.Space.snug) {
@@ -327,18 +363,6 @@ struct NotchRootView: View {
                     .padding(.leading, hasLeftWing ? 0 : Theme.Space.wingInset)
             }
             Spacer()
-            if batteryVisible, let battery = stats.battery {
-                HStack(spacing: 2) {
-                    if battery.charging {
-                        Image(systemName: "bolt.fill")
-                            .font(Theme.Fonts.icon(.xs))
-                    }
-                    Text("\(battery.level)%")
-                        .font(Theme.Fonts.captionMono)
-                }
-                .foregroundStyle(battery.level <= 20 && !battery.charging ? accent : Theme.textTertiary)
-                .padding(.trailing, Theme.Space.wingInset)
-            }
         }
     }
 

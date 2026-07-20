@@ -4,18 +4,46 @@ import SwiftUI
 
 @MainActor
 final class MusicController: ObservableObject {
+    /// Where the media is coming from. Spotify and Apple Music are
+    /// scriptable (per-app volume, shuffle); anything else, a browser
+    /// playing YouTube Music, a video player, arrives through the
+    /// MediaRemote bridge and gets transport plus system volume.
+    enum Source: Equatable {
+        case spotify
+        case appleMusic
+        case system(bundleID: String, name: String)
+
+        var displayName: String {
+            switch self {
+            case .spotify: return "Spotify"
+            case .appleMusic: return "Music"
+            case .system(_, let name): return name
+            }
+        }
+
+        var scriptable: MusicApp? {
+            switch self {
+            case .spotify: return .spotify
+            case .appleMusic: return .appleMusic
+            case .system: return nil
+            }
+        }
+    }
+
     struct NowPlaying: Equatable {
-        var app: MusicApp
+        var source: Source
         var track: String
         var artist: String
         var album: String
         var isPlaying: Bool
         var duration: Double
+        /// App volume for scriptable sources, system volume otherwise.
         var volume: Double
         var shuffling: Bool
+        var supportsShuffle: Bool
     }
 
-    /// Playback position measured once per poll; views project it
+    /// Playback position measured once per update; views project it
     /// forward locally so the scrubber glides instead of stepping.
     struct PositionAnchor {
         var position: Double
@@ -35,8 +63,8 @@ final class MusicController: ObservableObject {
     }
 
     /// Published only when something meaningful changes (track, play
-    /// state, volume, shuffle); position lives in the anchor so the 1s
-    /// poll doesn't rebuild the whole row every tick.
+    /// state, volume, shuffle); position lives in the anchor so
+    /// updates don't rebuild the whole row every tick.
     @Published var nowPlaying: NowPlaying?
     @Published var artwork: NSImage?
     /// Artwork-derived accent for the whole island; neutral when idle.
@@ -44,28 +72,43 @@ final class MusicController: ObservableObject {
 
     private(set) var positionAnchor: PositionAnchor?
 
+    let bridge = MediaRemoteBridge()
+    private var subscriptions = Set<AnyCancellable>()
+
     private var timer: Timer?
     private let separator = "|||"
     /// Track identity the current artwork belongs to, so art is only
     /// fetched when the song changes.
     private var artworkKey: String?
-    /// After an optimistic command, polls started before it are stale;
-    /// skip publishing them for a beat instead of flickering back.
+    /// After an optimistic command, updates started before it are
+    /// stale; skip publishing them for a beat instead of flickering.
     private var suppressPollUntil = Date.distantPast
 
     /// One serial background lane for every AppleScript. Running them
-    /// on the main thread stalled the UI for 50-200ms per call, once a
-    /// second, which read as "glitchy" everywhere.
+    /// on the main thread stalls the UI for 50-200ms per call.
     private static let scriptQueue = DispatchQueue(label: "moai.music.script", qos: .userInitiated)
 
     func start() {
-        refresh()
+        bridge.start()
+        bridge.$state
+            .sink { [weak self] state in
+                Task { @MainActor in self?.applyBridge(state) }
+            }
+            .store(in: &subscriptions)
+        refreshTick()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor in self?.refreshTick() }
         }
     }
 
-    /// Where playback is right now, projected from the last poll.
+    /// App is quitting: stop the stream so no perl child outlives us.
+    func shutdown() {
+        timer?.invalidate()
+        timer = nil
+        bridge.stop()
+    }
+
+    /// Where playback is right now, projected from the last update.
     func position(at date: Date = Date()) -> Double {
         guard let anchor = positionAnchor, let playing = nowPlaying else { return 0 }
         guard playing.isPlaying else { return anchor.position }
@@ -73,7 +116,7 @@ final class MusicController: ObservableObject {
         return playing.duration > 0 ? min(projected, playing.duration) : projected
     }
 
-    // MARK: - Transport (optimistic: the UI flips now, the poll confirms)
+    // MARK: - Transport (optimistic: the UI flips now, updates confirm)
 
     func play() { setPlayback(true) }
     func pause() { setPlayback(false) }
@@ -83,46 +126,59 @@ final class MusicController: ObservableObject {
     }
 
     private func setPlayback(_ playing: Bool) {
-        guard let app = activeApp() else { return }
-        let current = position()
+        guard let current = nowPlaying else { return }
+        let position = position()
         nowPlaying?.isPlaying = playing
-        positionAnchor = PositionAnchor(position: current, date: Date())
+        positionAnchor = PositionAnchor(position: position, date: Date())
         holdPolls()
-        run("tell application \"\(app.rawValue)\" to \(playing ? "play" : "pause")") { [weak self] _ in
-            self?.refresh(force: true)
+        if let app = current.source.scriptable {
+            run("tell application \"\(app.rawValue)\" to \(playing ? "play" : "pause")") { [weak self] _ in
+                self?.refreshTick(force: true)
+            }
+        } else {
+            bridge.send(playing ? .play : .pause)
         }
     }
 
-    func next() { skipTrack("next track") }
-    func previous() { skipTrack("previous track") }
+    func next() { skipTrack(forward: true) }
+    func previous() { skipTrack(forward: false) }
 
-    private func skipTrack(_ verb: String) {
-        guard let app = activeApp() else { return }
+    private func skipTrack(forward: Bool) {
+        guard let current = nowPlaying else { return }
         positionAnchor = PositionAnchor(position: 0, date: Date())
         holdPolls()
-        run("tell application \"\(app.rawValue)\" to \(verb)") { [weak self] _ in
-            self?.refresh(force: true)
+        if let app = current.source.scriptable {
+            let verb = forward ? "next track" : "previous track"
+            run("tell application \"\(app.rawValue)\" to \(verb)") { [weak self] _ in
+                self?.refreshTick(force: true)
+            }
+        } else {
+            bridge.send(forward ? .next : .previous)
         }
     }
 
     func toggleShuffle() {
-        guard let app = activeApp() else { return }
+        guard let app = nowPlaying?.source.scriptable else { return }
         nowPlaying?.shuffling.toggle()
         holdPolls()
         let script = app == .spotify
             ? "tell application \"Spotify\" to set shuffling to not shuffling"
             : "tell application \"Music\" to set shuffle enabled to not shuffle enabled"
         run(script) { [weak self] _ in
-            self?.refresh(force: true)
+            self?.refreshTick(force: true)
         }
     }
 
     func seek(to seconds: Double) {
-        guard let app = activeApp() else { return }
+        guard let current = nowPlaying else { return }
         positionAnchor = PositionAnchor(position: seconds, date: Date())
         holdPolls()
-        run("tell application \"\(app.rawValue)\" to set player position to \(Int(seconds))") { [weak self] _ in
-            self?.refresh(force: true)
+        if let app = current.source.scriptable {
+            run("tell application \"\(app.rawValue)\" to set player position to \(Int(seconds))") { [weak self] _ in
+                self?.refreshTick(force: true)
+            }
+        } else {
+            bridge.seek(to: seconds)
         }
     }
 
@@ -156,16 +212,20 @@ final class MusicController: ObservableObject {
         sendVolume(volume)
     }
 
-    private func sendVolume(_ volume: Double) {
-        guard let app = activeApp() else { return }
-        let clamped = max(0, min(100, Int(volume)))
-        nowPlaying?.volume = Double(clamped)
-        holdPolls()
-        run("tell application \"\(app.rawValue)\" to set sound volume to \(clamped)")
-    }
-
     func setVolume(_ volume: Double) {
         commitVolume(volume)
+    }
+
+    private func sendVolume(_ volume: Double) {
+        guard let current = nowPlaying else { return }
+        let clamped = max(0, min(100, volume))
+        nowPlaying?.volume = clamped
+        holdPolls()
+        if let app = current.source.scriptable {
+            run("tell application \"\(app.rawValue)\" to set sound volume to \(Int(clamped))")
+        } else {
+            SystemVolume.set(clamped)
+        }
     }
 
     // MARK: - Quick access
@@ -185,9 +245,14 @@ final class MusicController: ObservableObject {
         return nil
     }
 
-    /// Open the preferred player; with neither installed, fall back to
-    /// YouTube Music in the browser so the chip always does something.
+    /// Open whatever is playing; idle, open the preferred player; with
+    /// neither installed, YouTube Music in the browser.
     func openMusicApp() {
+        if case .system(let bundleID, _) = nowPlaying?.source,
+           let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+            app.activate()
+            return
+        }
         if let app = preferredApp,
            let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
             NSWorkspace.shared.openApplication(at: url, configuration: .init())
@@ -210,7 +275,123 @@ final class MusicController: ObservableObject {
         return nil
     }
 
-    // MARK: - Poll
+    // MARK: - Bridge updates (the truth when the adapter works)
+
+    private func applyBridge(_ state: MediaRemoteBridge.State?) {
+        guard bridge.adapterAvailable else { return }
+        guard Date() >= suppressPollUntil else { return }
+        guard let state else {
+            clearNowPlaying()
+            return
+        }
+        let source = resolveSource(state.bundleIdentifier)
+        let sameSource = nowPlaying?.source == source
+        let fresh = NowPlaying(
+            source: source,
+            track: state.title,
+            artist: state.artist,
+            album: state.album,
+            isPlaying: state.playing,
+            duration: state.duration,
+            volume: sameSource ? (nowPlaying?.volume ?? 50) : seedVolume(for: source),
+            shuffling: sameSource ? (nowPlaying?.shuffling ?? false) : false,
+            supportsShuffle: source.scriptable != nil
+        )
+        positionAnchor = PositionAnchor(position: state.elapsed, date: state.timestamp)
+        if fresh != nowPlaying {
+            nowPlaying = fresh
+            if let app = source.scriptable {
+                UserDefaults.standard.set(app.rawValue, forKey: lastAppKey)
+            }
+        }
+        applyBridgeArtwork(state)
+    }
+
+    private func resolveSource(_ bundleID: String) -> Source {
+        switch bundleID {
+        case MusicApp.spotify.bundleID: return .spotify
+        case MusicApp.appleMusic.bundleID: return .appleMusic
+        default:
+            let name = NSRunningApplication
+                .runningApplications(withBundleIdentifier: bundleID)
+                .first?.localizedName
+                ?? bundleID.split(separator: ".").last.map(String.init)?.capitalized
+                ?? "Media"
+            return .system(bundleID: bundleID, name: name)
+        }
+    }
+
+    private func seedVolume(for source: Source) -> Double {
+        switch source {
+        case .system: return SystemVolume.level() ?? 50
+        case .spotify, .appleMusic: return 50
+        }
+    }
+
+    private func applyBridgeArtwork(_ state: MediaRemoteBridge.State) {
+        let key = state.title + "|" + state.artist
+        guard key != artworkKey else { return }
+        if let data = state.artworkData, let image = NSImage(data: data) {
+            artworkKey = key
+            artwork = image
+            updateAccent(from: image)
+        } else if let app = nowPlaying?.source.scriptable {
+            fetchScriptedArtwork(app: app, key: key)
+        } else {
+            artworkKey = key
+            artwork = nil
+            updateAccent(from: nil)
+        }
+    }
+
+    // MARK: - Poll (enrichment beside the bridge, full when it is gone)
+
+    private func refreshTick(force: Bool = false) {
+        if bridge.adapterAvailable {
+            enrichmentPoll(force: force)
+        } else {
+            legacyFullPoll(force: force)
+        }
+    }
+
+    /// The bridge covers what is playing; this only tops up what it
+    /// cannot see: per-app volume and shuffle for scriptable players,
+    /// the system volume for everything else.
+    private func enrichmentPoll(force: Bool = false) {
+        guard let current = nowPlaying else { return }
+        if let app = current.source.scriptable {
+            let shuffleExpr = app == .spotify ? "shuffling" : "shuffle enabled"
+            let source = """
+            tell application "\(app.rawValue)"
+                try
+                    set shuf to \(shuffleExpr)
+                on error
+                    set shuf to false
+                end try
+                return (sound volume as string) & "\(separator)" & (shuf as string)
+            end tell
+            """
+            run(source) { [weak self] output in
+                guard let self, let output else { return }
+                guard force || Date() >= self.suppressPollUntil else { return }
+                let parts = output.components(separatedBy: self.separator)
+                guard parts.count >= 2 else { return }
+                var updated = self.nowPlaying
+                updated?.volume = Self.number(parts[0])
+                updated?.shuffling = parts[1] == "true"
+                if let updated, updated != self.nowPlaying {
+                    self.nowPlaying = updated
+                }
+            }
+        } else {
+            guard force || Date() >= suppressPollUntil else { return }
+            if let level = SystemVolume.level(), var updated = nowPlaying,
+               abs(level - updated.volume) >= 1 {
+                updated.volume = level
+                nowPlaying = updated
+            }
+        }
+    }
 
     /// One reset path for every "there is nothing playing" branch.
     private func clearNowPlaying() {
@@ -225,7 +406,9 @@ final class MusicController: ObservableObject {
         suppressPollUntil = Date().addingTimeInterval(0.8)
     }
 
-    private func refresh(force: Bool = false) {
+    /// The pre-bridge poller, kept whole as the fallback for a macOS
+    /// that breaks the adapter: Spotify and Apple Music by AppleScript.
+    private func legacyFullPoll(force: Bool = false) {
         guard let app = activeApp() else {
             clearNowPlaying()
             return
@@ -271,13 +454,11 @@ final class MusicController: ObservableObject {
         end tell
         """
         run(source) { [weak self] output in
-            self?.apply(output, from: app, force: force)
+            self?.applyLegacy(output, from: app, force: force)
         }
     }
 
-    private func apply(_ output: String?, from app: MusicApp, force: Bool) {
-        // A poll that raced an optimistic command reports the world
-        // from just before it; dropping one beat beats flickering.
+    private func applyLegacy(_ output: String?, from app: MusicApp, force: Bool) {
         guard force || Date() >= suppressPollUntil else { return }
         guard let output else {
             clearNowPlaying()
@@ -288,45 +469,49 @@ final class MusicController: ObservableObject {
             clearNowPlaying()
             return
         }
+        let source: Source = app == .spotify ? .spotify : .appleMusic
         let fresh = NowPlaying(
-            app: app,
+            source: source,
             track: parts[1],
             artist: parts[2],
             album: parts[3],
             isPlaying: parts[0] == "playing",
             duration: Self.number(parts[5]),
             volume: Self.number(parts[6]),
-            shuffling: parts[7] == "true"
+            shuffling: parts[7] == "true",
+            supportsShuffle: true
         )
         positionAnchor = PositionAnchor(position: Self.number(parts[4]), date: Date())
         if fresh != nowPlaying {
             nowPlaying = fresh
             UserDefaults.standard.set(app.rawValue, forKey: lastAppKey)
         }
-        refreshArtwork(app: app, key: parts[1] + "|" + parts[2], spotifyURL: parts[8])
+        let key = parts[1] + "|" + parts[2]
+        guard key != artworkKey else { return }
+        if app == .spotify, let url = URL(string: parts[8]) {
+            artworkKey = key
+            downloadArtwork(from: url, key: key)
+        } else {
+            fetchScriptedArtwork(app: app, key: key)
+        }
     }
 
     // MARK: - Artwork
 
-    private func refreshArtwork(app: MusicApp, key: String, spotifyURL: String) {
-        guard key != artworkKey else { return }
+    /// Per-app artwork fetch, used when the bridge has no art or as
+    /// part of the legacy poll.
+    private func fetchScriptedArtwork(app: MusicApp, key: String) {
         artworkKey = key
         switch app {
         case .spotify:
-            guard let url = URL(string: spotifyURL) else {
-                artwork = nil
-                updateAccent(from: nil)
-                return
-            }
-            // (Track info stays; only the art is unavailable.)
-            Task { [weak self] in
-                let image = (try? await URLSession.shared.data(from: url))
-                    .flatMap { NSImage(data: $0.0) }
-                await MainActor.run {
-                    guard let self, self.artworkKey == key else { return }
-                    self.artwork = image
-                    self.updateAccent(from: image)
+            run("tell application \"Spotify\" to artwork url of current track") { [weak self] output in
+                guard let self, self.artworkKey == key else { return }
+                guard let output, let url = URL(string: output) else {
+                    self.artwork = nil
+                    self.updateAccent(from: nil)
+                    return
                 }
+                self.downloadArtwork(from: url, key: key)
             }
         case .appleMusic:
             let source = """
@@ -348,6 +533,18 @@ final class MusicController: ObservableObject {
                     self.artwork = image
                     self.updateAccent(from: image)
                 }
+            }
+        }
+    }
+
+    private func downloadArtwork(from url: URL, key: String) {
+        Task { [weak self] in
+            let image = (try? await URLSession.shared.data(from: url))
+                .flatMap { NSImage(data: $0.0) }
+            await MainActor.run {
+                guard let self, self.artworkKey == key else { return }
+                self.artwork = image
+                self.updateAccent(from: image)
             }
         }
     }

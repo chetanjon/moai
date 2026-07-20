@@ -13,6 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchController: NotchWindowController?
     private var statusItem: NSStatusItem?
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // Stop the media bridge stream so no perl child outlives us.
+        notchController?.viewModel.music.shutdown()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Press-and-hold accent picker is a remote-view sheet that
         // crashes when it tries to attach to the borderless notch

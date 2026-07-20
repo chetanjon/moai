@@ -7,7 +7,19 @@ targets:
   Moai:
     type: application
     platform: macOS
-    sources: [Moai]
+    sources:
+      - Moai
+      # MediaRemote adapter (BSD 3-Clause, github.com/ungive/mediaremote-adapter):
+      # perl loads the framework to stream any app's now-playing data.
+      - path: Vendor/MediaRemoteAdapter/mediaremote-adapter.pl
+        buildPhase: resources
+      - path: Vendor/MediaRemoteAdapter/MediaRemoteAdapterTestClient
+        buildPhase: resources
+    dependencies:
+      - framework: Vendor/MediaRemoteAdapter/MediaRemoteAdapter.framework
+        embed: true
+        codeSign: true
+        link: false
     info:
       path: Moai/Info.plist
       properties:

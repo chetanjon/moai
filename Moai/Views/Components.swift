@@ -151,6 +151,115 @@ extension View {
     }
 }
 
+/// One line that glides when it overflows: title, a dot, subtitle.
+/// It only exists while music plays, playback feedback, so it keeps
+/// moving under the Still feel; the system Reduce Motion setting
+/// shows it statically truncated instead.
+struct MarqueeText: View {
+    let title: String
+    var subtitle = ""
+
+    @State private var contentWidth: CGFloat = 0
+    @State private var appeared = Date()
+
+    var body: some View {
+        GeometryReader { geo in
+            content(available: geo.size.width)
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+
+    @ViewBuilder
+    private func content(available: CGFloat) -> some View {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            staticLine
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if contentWidth <= available {
+            line
+                .background(widthReader)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+                line
+                    .background(widthReader)
+                    .offset(x: -offset(at: context.date, span: contentWidth - available))
+                    .frame(width: available, height: nil, alignment: .leading)
+                    .clipped()
+            }
+            .mask(fadeMask(available))
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private var line: some View {
+        HStack(spacing: Theme.Space.snug) {
+            Text(title)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textSecondary)
+            if !subtitle.isEmpty {
+                Text("·")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textGhost)
+                Text(subtitle)
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .lineLimit(1)
+        .fixedSize()
+    }
+
+    private var staticLine: some View {
+        Text(subtitle.isEmpty ? title : "\(title) · \(subtitle)")
+            .font(Theme.Fonts.caption)
+            .foregroundStyle(Theme.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+    }
+
+    /// Measured the way the island measures itself: onChange of
+    /// geometry, preferences silently fail in this hierarchy.
+    private var widthReader: some View {
+        GeometryReader { geo in
+            Color.clear
+                .onChange(of: geo.size.width, initial: true) { _, width in
+                    contentWidth = width
+                }
+        }
+    }
+
+    /// Ping-pong: rest at the start, glide to the end, rest, glide
+    /// back. Reads quieter than the looping-copy marquee.
+    private func offset(at date: Date, span: CGFloat) -> CGFloat {
+        guard span > 0 else { return 0 }
+        let glide = Double(span) / 20.0
+        let cycle = 2.0 + glide + 1.5 + glide
+        var t = date.timeIntervalSince(appeared)
+            .truncatingRemainder(dividingBy: cycle)
+        if t < 2 { return 0 }
+        t -= 2
+        if t < glide { return span * CGFloat(t / glide) }
+        t -= glide
+        if t < 1.5 { return span }
+        t -= 1.5
+        return span * CGFloat(1 - t / glide)
+    }
+
+    private func fadeMask(_ width: CGFloat) -> some View {
+        let edge = min(8 / max(width, 16), 0.45)
+        return LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .white, location: edge),
+                .init(color: .white, location: 1 - edge),
+                .init(color: .clear, location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+}
+
 /// Choreographed open: rows breathe in one after another, top to
 /// bottom, just behind the shell. Under Still it's a plain fade.
 private struct StaggeredReveal: ViewModifier {

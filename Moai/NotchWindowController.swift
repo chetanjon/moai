@@ -136,6 +136,7 @@ final class NotchWindowController {
         guard let screen else { return }
 
         // Measure the physical notch; notch-less displays keep the default pill.
+        viewModel.hasPhysicalNotch = screen.safeAreaInsets.top > 0
         var notchSize = NotchViewModel.defaultNotchSize
         if screen.safeAreaInsets.top > 0,
            let left = screen.auxiliaryTopLeftArea,

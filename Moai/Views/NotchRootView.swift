@@ -317,14 +317,7 @@ struct NotchRootView: View {
                 }
                 .padding(.leading, Theme.Space.wingInset)
             } else if music.nowPlaying?.isPlaying == true {
-                Image(systemName: "waveform")
-                    .font(Theme.Fonts.icon(.s))
-                    .foregroundStyle(accent)
-                    .symbolEffect(
-                        .variableColor.iterative,
-                        options: .repeating,
-                        isActive: Theme.Feel.current.ambient
-                    )
+                NowPlayingBars(accent: accent, barCount: 4, maxHeight: 11)
                     .padding(.leading, Theme.Space.wingInset)
             }
             if let active = ambience.active {

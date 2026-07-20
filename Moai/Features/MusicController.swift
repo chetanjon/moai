@@ -13,6 +13,7 @@ final class MusicController: ObservableObject {
         var position: Double
         var duration: Double
         var volume: Double
+        var shuffling: Bool
     }
 
     enum MusicApp: String {
@@ -61,6 +62,15 @@ final class MusicController: ObservableObject {
         guard let app = activeApp() else { return }
         let clamped = max(0, min(100, Int(volume)))
         runScript("tell application \"\(app.rawValue)\" to set sound volume to \(clamped)")
+    }
+
+    func toggleShuffle() {
+        guard let app = activeApp() else { return }
+        let script = app == .spotify
+            ? "tell application \"Spotify\" to set shuffling to not shuffling"
+            : "tell application \"Music\" to set shuffle enabled to not shuffle enabled"
+        runScript(script)
+        refresh()
     }
 
     /// Only talk to players that are already running. An AppleScript
@@ -131,6 +141,9 @@ final class MusicController: ObservableObject {
         let artExpr = app == .spotify
             ? "artwork url of current track"
             : "\"\""
+        let shuffleExpr = app == .spotify
+            ? "shuffling"
+            : "shuffle enabled"
         let source = """
         tell application "\(app.rawValue)"
             if player state is playing then
@@ -153,7 +166,12 @@ final class MusicController: ObservableObject {
             end try
             set pos to player position
             set vol to sound volume
-            return s & "\(separator)" & t & "\(separator)" & a & "\(separator)" & al & "\(separator)" & pos & "\(separator)" & dur & "\(separator)" & vol & "\(separator)" & art
+            try
+                set shuf to \(shuffleExpr)
+            on error
+                set shuf to false
+            end try
+            return s & "\(separator)" & t & "\(separator)" & a & "\(separator)" & al & "\(separator)" & pos & "\(separator)" & dur & "\(separator)" & vol & "\(separator)" & shuf & "\(separator)" & art
         end tell
         """
         guard let output = runScript(source) else {
@@ -161,7 +179,7 @@ final class MusicController: ObservableObject {
             return
         }
         let parts = output.components(separatedBy: separator)
-        guard parts.count >= 8, !parts[1].isEmpty else {
+        guard parts.count >= 9, !parts[1].isEmpty else {
             clearNowPlaying()
             return
         }
@@ -173,10 +191,11 @@ final class MusicController: ObservableObject {
             isPlaying: parts[0] == "playing",
             position: Self.number(parts[4]),
             duration: Self.number(parts[5]),
-            volume: Self.number(parts[6])
+            volume: Self.number(parts[6]),
+            shuffling: parts[7] == "true"
         )
         UserDefaults.standard.set(app.rawValue, forKey: lastAppKey)
-        refreshArtwork(app: app, key: parts[1] + "|" + parts[2], spotifyURL: parts[7])
+        refreshArtwork(app: app, key: parts[1] + "|" + parts[2], spotifyURL: parts[8])
     }
 
     // MARK: - Artwork

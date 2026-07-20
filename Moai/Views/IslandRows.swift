@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The music row: dimensional artwork that glows while it plays, a
@@ -8,6 +9,9 @@ struct MusicRow: View {
     @ObservedObject var music: MusicController
     @Environment(\.moaiAccent) private var accent
     @State private var scrubPosition: Double?
+    /// Local slider value while the user is dragging, so the 1s
+    /// player poll can't yank the knob back mid-gesture.
+    @State private var volumeOverride: Double?
 
     var body: some View {
         if let playing = music.nowPlaying {
@@ -60,27 +64,58 @@ struct MusicRow: View {
                     .foregroundStyle(Theme.textGhost)
                 }
 
-                HStack(spacing: Theme.Space.s) {
-                    HoverGlyphButton(symbol: "backward.fill", scale: .s, tint: Theme.textPrimary) {
-                        music.previous()
+                VStack(spacing: Theme.Space.xs) {
+                    HStack(spacing: Theme.Space.s) {
+                        HoverGlyphButton(
+                            symbol: "shuffle",
+                            scale: .xs,
+                            tint: playing.shuffling ? accent : Theme.textTertiary
+                        ) {
+                            music.toggleShuffle()
+                        }
+                        .help(playing.shuffling ? "Shuffle is on" : "Shuffle")
+                        HoverGlyphButton(symbol: "backward.fill", scale: .s, tint: Theme.textPrimary) {
+                            music.previous()
+                        }
+                        Button {
+                            playing.isPlaying ? music.pause() : music.play()
+                        } label: {
+                            Image(systemName: playing.isPlaying ? "pause.fill" : "play.fill")
+                                .font(Theme.Fonts.icon(.m, weight: .bold))
+                                .foregroundStyle(Color.black)
+                                .frame(width: 32, height: 32)
+                                .background(
+                                    Circle()
+                                        .fill(Color.white.opacity(0.96))
+                                        .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                                )
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(PressableStyle())
+                        HoverGlyphButton(symbol: "forward.fill", scale: .s, tint: Theme.textPrimary) {
+                            music.next()
+                        }
                     }
-                    Button {
-                        playing.isPlaying ? music.pause() : music.play()
-                    } label: {
-                        Image(systemName: playing.isPlaying ? "pause.fill" : "play.fill")
-                            .font(Theme.Fonts.icon(.m, weight: .bold))
-                            .foregroundStyle(Color.black)
-                            .frame(width: 32, height: 32)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.96))
-                                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
-                            )
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(PressableStyle())
-                    HoverGlyphButton(symbol: "forward.fill", scale: .s, tint: Theme.textPrimary) {
-                        music.next()
+                    HStack(spacing: Theme.Space.xs) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(Theme.Fonts.icon(.xs))
+                            .foregroundStyle(Theme.textTertiary)
+                        Slider(
+                            value: Binding(
+                                get: { volumeOverride ?? playing.volume },
+                                set: { volumeOverride = $0 }
+                            ),
+                            in: 0...100,
+                            onEditingChanged: { editing in
+                                if !editing, let target = volumeOverride {
+                                    music.setVolume(target)
+                                    volumeOverride = nil
+                                }
+                            }
+                        )
+                        .controlSize(.mini)
+                        .tint(Color.white.opacity(0.5))
+                        .frame(width: 68)
                     }
                 }
             }
@@ -132,33 +167,50 @@ struct MusicRow: View {
     }
 }
 
-/// A tiny live equalizer, three accent bars breathing while a track
-/// plays. Still glass (or Reduce Motion) shows them at rest.
+/// A live equalizer: accent bars dancing while a track plays. This is
+/// playback feedback, not ambient decoration, so it keeps moving under
+/// the Still feel (it disappears the moment playback pauses); only the
+/// system Reduce Motion setting parks it.
 struct NowPlayingBars: View {
     let accent: Color
+    var barCount = 5
+    var maxHeight: CGFloat = 14
 
     var body: some View {
-        if Theme.Feel.current.ambient {
-            TimelineView(.animation(minimumInterval: 1 / 12)) { context in
-                let t = context.date.timeIntervalSinceReferenceDate
-                bars { index in
-                    3 + 6 * (0.5 + 0.5 * sin(t * 4.2 + Double(index) * 1.7))
-                }
-            }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            bars { index in restHeight(index) }
         } else {
-            bars { index in [5.0, 9.0, 6.0][index] }
+            TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                bars { index in liveHeight(t: t, index: index) }
+            }
         }
+    }
+
+    /// Two incommensurate sines plus a slow swell per bar: loop-free,
+    /// organic bounce, the way a real analyzer never quite repeats.
+    private func liveHeight(t: Double, index: Int) -> CGFloat {
+        let phase = Double(index) * 1.9
+        let fast = sin(t * 4.6 + phase)
+        let cross = sin(t * 2.9 + phase * 2.3)
+        let swell = sin(t * 0.7 + phase * 0.9)
+        let unit = 0.5 + 0.5 * (0.55 * fast + 0.3 * cross + 0.15 * swell)
+        return maxHeight * CGFloat(0.22 + 0.78 * unit)
+    }
+
+    private func restHeight(_ index: Int) -> CGFloat {
+        maxHeight * [0.45, 0.8, 0.6, 0.9, 0.5][index % 5]
     }
 
     private func bars(_ height: @escaping (Int) -> CGFloat) -> some View {
         HStack(alignment: .center, spacing: 2) {
-            ForEach(0..<3, id: \.self) { index in
+            ForEach(0..<barCount, id: \.self) { index in
                 Capsule()
                     .fill(accent)
-                    .frame(width: 2.5, height: height(index))
+                    .frame(width: 2.5, height: max(2.5, height(index)))
             }
         }
-        .frame(height: 12)
+        .frame(height: maxHeight)
     }
 }
 

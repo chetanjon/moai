@@ -212,22 +212,25 @@ final class NoiseEngine {
             brownLast = (brownLast + 0.02 * white) / 1.02
             value = brownLast * 3.2
         case .construction:
-            // A brown rumble carrying a muffled impact roughly twice a
-            // second, each with a fast attack and a long decay — a pile
-            // driver or hammer heard through the walls two blocks over.
+            // A distant site: a low rumble carrying a hammer thunk about
+            // twice a second. The impact keeps some midrange (a broadband
+            // burst plus a 150 Hz tone) so laptop speakers actually
+            // reproduce it, then decays fast so it reads as a strike.
             brownLast = (brownLast + 0.02 * white) / 1.02
-            let rumble = brownLast * 2.4
+            let rumble = brownLast * 2.6
             constrPhase += 1
-            if constrPhase >= 24000 {
+            if constrPhase >= 26000 {
                 constrPhase = 0
                 constrEnv = 1
                 constrOsc = 0
             }
-            constrEnv *= 0.99935
-            let thud = sinf(constrOsc) * constrEnv * 0.7
-            constrOsc += 2 * Float.pi * 68 / 48000
+            constrEnv *= 0.9990
+            let punch = constrEnv * constrEnv
+            let tone = sinf(constrOsc)
+            constrOsc += 2 * Float.pi * 150 / 48000
             if constrOsc > 2 * Float.pi { constrOsc -= 2 * Float.pi }
-            value = rumble * 0.5 + thud
+            let thunk = (tone * 0.6 + white * 0.55) * punch
+            value = rumble * 0.6 + thunk
         case .rain, .fire, .cafe:
             value = 0
         }

@@ -165,11 +165,33 @@ struct AmbienceRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.s) {
-            Text(ambience.active?.displayName ?? "Ambience")
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(ambience.active != nil ? accent : Theme.textTertiary)
-                .lineLimit(1)
-                .frame(width: 92, alignment: .leading)
+            Group {
+                if let active = ambience.active {
+                    // While a sound plays the label becomes its stop button,
+                    // so quieting it is obvious, not a hidden second tap.
+                    Button {
+                        ambience.stop()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(active.displayName)
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(accent)
+                                .lineLimit(1)
+                            Image(systemName: "xmark.circle.fill")
+                                .font(Theme.Fonts.icon(.xs))
+                                .foregroundStyle(accent.opacity(0.8))
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressableStyle())
+                    .help("Stop \(active.displayName)")
+                } else {
+                    Text("Ambience")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .frame(width: 92, alignment: .leading)
 
             ForEach(NoiseEngine.NoiseColor.allCases, id: \.self) { color in
                 NoiseButton(

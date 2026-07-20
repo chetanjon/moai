@@ -232,7 +232,7 @@ struct NotchRootView: View {
                     model.beginListening()
                 }
             )
-            .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted) { providers in
+            .onDrop(of: [UTType.fileURL, UTType.image], isTargeted: $isDropTargeted) { providers in
                 handleDrop(providers)
             }
             .animation(Theme.Motion.island, value: model.state)
@@ -436,17 +436,57 @@ struct NotchRootView: View {
 
     private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
         var accepted = false
-        for provider in providers where provider.canLoadObject(ofClass: URL.self) {
-            accepted = true
-            _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                guard let url else { return }
-                Task { @MainActor in
-                    model.shelf.add(url)
-                    model.tab = .shelf
-                    model.expand()
+        for provider in providers {
+            if provider.canLoadObject(ofClass: URL.self) {
+                // A real file from Finder or an app: stash it as-is.
+                accepted = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url, url.isFileURL else { return }
+                    Task { @MainActor in self.stash(url) }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                // A dragged screenshot or image with no file behind it:
+                // write it to disk first, then stash that.
+                accepted = true
+                provider.loadDataRepresentation(
+                    forTypeIdentifier: UTType.image.identifier
+                ) { data, _ in
+                    guard let data, let url = Self.saveDroppedImage(data) else { return }
+                    Task { @MainActor in self.stash(url) }
                 }
             }
         }
         return accepted
+    }
+
+    private func stash(_ url: URL) {
+        model.shelf.add(url)
+        model.tab = .shelf
+        model.expand()
+    }
+
+    /// Dropped image data (a screenshot thumbnail, an image from a page)
+    /// has no file behind it, so save a PNG into the app's own folder and
+    /// stash that. Kept out of temp so the Shelf bookmark keeps resolving.
+    private static func saveDroppedImage(_ data: Data) -> URL? {
+        let png: Data
+        if let image = NSImage(data: data),
+           let tiff = image.tiffRepresentation,
+           let rep = NSBitmapImageRep(data: tiff),
+           let encoded = rep.representation(using: .png, properties: [:]) {
+            png = encoded
+        } else {
+            png = data
+        }
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Moai/Dropped", isDirectory: true)
+        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
+        let url = base.appendingPathComponent("Shot-\(Int(Date().timeIntervalSince1970)).png")
+        do {
+            try png.write(to: url)
+            return url
+        } catch {
+            return nil
+        }
     }
 }

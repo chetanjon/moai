@@ -306,7 +306,7 @@ struct AuroraView: View {
             let t = context.date.timeIntervalSinceReferenceDate / calm
             let dim = calm > 1 ? 0.85 : 1.0
             // Lively pushes a wider drift and lets the second blob's
-            // hue wander — same TimelineView, same frame cost.
+            // hue wander, same TimelineView, same frame cost.
             let lively = Theme.Feel.current == .lively
             let drift: CGFloat = lively ? 1.15 : 1.0
             ZStack {

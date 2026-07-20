@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Go tab: a quiet grid of user-defined shortcuts — websites,
+/// The Go tab: a quiet grid of user-defined shortcuts, websites,
 /// apps, folders. Click to launch and the island slips shut.
 struct ShortcutsView: View {
     @ObservedObject var model: NotchViewModel
@@ -25,7 +25,7 @@ struct ShortcutsView: View {
             if store.shortcuts.isEmpty && !adding {
                 VStack {
                     Spacer()
-                    Text("Save the places you jump to — sites, apps, folders.")
+                    Text("Save the places you jump to, sites, apps, folders.")
                         .font(Theme.Fonts.body)
                         .foregroundStyle(Theme.textHint)
                     Button {

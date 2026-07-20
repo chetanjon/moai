@@ -30,12 +30,12 @@ final class NotchViewModel: ObservableObject {
     @Published var tab: Tab = .today
     @Published var pane: Pane = .none
 
-    /// The island's expanded size, measured from the content itself —
+    /// The island's expanded size, measured from the content itself,
     /// the island hugs what's shown instead of reserving a fixed void.
     @Published var expandedSize = CGSize(width: 520, height: 170)
 
     /// Pointer position across the island, 0...1, published by the
-    /// window controller's hover poll — quantized so casual movement
+    /// window controller's hover poll, quantized so casual movement
     /// costs a few re-renders per second, not twenty. nil = no light.
     @Published var pointerUnit: CGFloat?
 
@@ -170,7 +170,7 @@ final class NotchViewModel: ObservableObject {
 
     func endListening() {
         guard state == .listening else { return }
-        // Leave listening immediately — finalization can take a second
+        // Leave listening immediately, finalization can take a second
         // and lingering in the listening UI reads as "release didn't
         // work". Dots show while the transcript settles.
         tab = .ask
@@ -210,7 +210,7 @@ final class NotchViewModel: ObservableObject {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isWorking else { return }
         errorText = ""
-        // Answers need room — the island grows to show them.
+        // Answers need room, the island grows to show them.
         tab = .ask
 
         Task {
@@ -231,7 +231,7 @@ final class NotchViewModel: ObservableObject {
             }
             let ready = provider == .local ? AIService.localModelAvailable : !key.isEmpty
             guard ready else {
-                answer = "That one needs a model. Turn on Apple Intelligence, or add a key in Settings — reminders, notes, timers, focus, calendar, and music all work without one."
+                answer = "That one needs a model. Turn on Apple Intelligence, or add a key in Settings. Reminders, notes, timers, focus, calendar, and music all work without one."
                 return
             }
 

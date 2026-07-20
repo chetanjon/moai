@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Press-and-hold accent picker is a remote-view sheet that
         // crashes when it tries to attach to the borderless notch
         // panel (ViewBridge SIGABRT, 2026-07-19). Held keys repeat
-        // instead — the same trade VS Code makes.
+        // instead, the same trade VS Code makes.
         UserDefaults.standard.register(defaults: ["ApplePressAndHoldEnabled": false])
 
         // The island itself

@@ -74,8 +74,8 @@ struct NotchRootView: View {
 
     private var islandShape: IslandShape {
         if model.state == .collapsed {
-            // On hover the droplet "reaches" — shoulders widen, belly
-            // sags — a soft beat of anticipation before opening.
+            // On hover the droplet "reaches", shoulders widen, belly
+            // sags, a soft beat of anticipation before opening.
             let reaching = model.isHovering && Theme.Feel.current.ambient
             return IslandShape(
                 eave: Theme.Island.eaveCollapsed + (reaching ? 1.5 : 0),
@@ -118,7 +118,7 @@ struct NotchRootView: View {
                             .opacity(model.state == .collapsed ? 1 : 0)
                     )
                     // Album-colored aurora drifting inside the glass.
-                    // Fades out fast on close — a slow fade inside the
+                    // Fades out fast on close, a slow fade inside the
                     // shrinking clip reads as shimmer.
                     .overlay {
                         if auroraOn, Theme.Feel.current.ambient, model.state != .collapsed {
@@ -150,7 +150,7 @@ struct NotchRootView: View {
                             .opacity(idleEdgeOn && model.state == .collapsed ? 1 : 0)
                     )
                     // A soft specular highlight that follows the cursor
-                    // along the top edge — the glass answers the hand.
+                    // along the top edge, the glass answers the hand.
                     .overlay {
                         if Theme.Feel.current.ambient, let unit = model.pointerUnit {
                             islandShape
@@ -170,7 +170,7 @@ struct NotchRootView: View {
                     .animation(Theme.Motion.hover, value: model.pointerUnit)
                     // Breathing accent ring: idle life on the edges when
                     // music or a timer is going. Intensity breathes in
-                    // place — nothing travels along the border.
+                    // place, nothing travels along the border.
                     .overlay {
                         if glowOn, Theme.Feel.current.ambient,
                            model.state == .collapsed, hasLeftWing {
@@ -183,7 +183,7 @@ struct NotchRootView: View {
                                     islandShape
                                         .strokeBorder(accent.opacity(0.08 + 0.10 * breath), lineWidth: 1.5)
                                     // The belly light breathes with the
-                                    // same rhythm — same clock, no new timer.
+                                    // same rhythm, same clock, no new timer.
                                     islandShape
                                         .strokeBorder(Theme.lipLight, lineWidth: 1)
                                         .opacity(0.10 + 0.20 * breath)
@@ -242,7 +242,7 @@ struct NotchRootView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .top)
-        // The user's accent choice, not the raw album color — fixed
+        // The user's accent choice, not the raw album color, fixed
         // modes must win everywhere below this point.
         .environment(\.moaiAccent, accent)
     }
@@ -255,7 +255,7 @@ struct NotchRootView: View {
         ZStack(alignment: .top) {
             if model.state == .collapsed {
                 // Wings and battery wait for the shell to mostly settle,
-                // then fade in — appearing mid-shrink reads as flicker.
+                // then fade in, appearing mid-shrink reads as flicker.
                 collapsedContent
                     .frame(width: collapsedSize.width, height: collapsedSize.height)
                     .transition(contentTransition(insertionDelay: 0.28))

@@ -24,7 +24,7 @@ final class NotchWindowController {
     /// straight back open while the pointer lingers near the notch.
     /// (An exit-before-reopen rule was tried instead and field-failed:
     /// it armed at launch and blocked hover for anyone who parks the
-    /// pointer near the notch — see 2026-07-18 diagnostics.)
+    /// pointer near the notch, see 2026-07-18 diagnostics.)
     private var lastCollapseAt = Date.distantPast
     private let reopenCooldown: TimeInterval = 0.6
     let viewModel = NotchViewModel()
@@ -33,7 +33,7 @@ final class NotchWindowController {
     private let minimumOpen: TimeInterval = 0.25
 
     /// Pointer must stay in the open zone this long before the island
-    /// opens — drive-through traffic along the top edge never triggers.
+    /// opens, drive-through traffic along the top edge never triggers.
     /// User-tunable ("openDelay" in settings).
     private var openDwell: TimeInterval {
         UserDefaults.standard.object(forKey: "openDelay") as? Double ?? 0.12
@@ -124,7 +124,7 @@ final class NotchWindowController {
         // configurations, but reading the location always works.
         //
         // A background LSUIElement app gets App Nap'd when launched via
-        // LaunchServices, which throttles timers to a crawl — declare a
+        // LaunchServices, which throttles timers to a crawl, declare a
         // long-running activity (idle sleep still allowed) to opt out.
         napActivity = ProcessInfo.processInfo.beginActivity(
             options: .userInitiatedAllowingIdleSystemSleep,
@@ -137,8 +137,8 @@ final class NotchWindowController {
         RunLoop.main.add(timer, forMode: .common)
         hoverTimer = timer
 
-        // Whenever the island changes state — for any reason, hover or
-        // not — re-sync hover bookkeeping so a stale flag can never
+        // Whenever the island changes state, for any reason, hover or
+        // not, re-sync hover bookkeeping so a stale flag can never
         // block the next open.
         stateSub = viewModel.$state.sink { [weak self] newState in
             Task { @MainActor in self?.stateChanged(newState) }
@@ -239,7 +239,7 @@ final class NotchWindowController {
 
     /// Generous reach in both directions: skimming the top edge near
     /// the notch is enough, and pointing at the island's visible body
-    /// or just under its lip also counts — users aim at what they see,
+    /// or just under its lip also counts, users aim at what they see,
     /// not at the strip above it.
     private func collapsedZone(on screen: NSScreen) -> NSRect {
         hoverZone(
@@ -257,7 +257,7 @@ final class NotchWindowController {
     /// A rect hanging from the top-center of the screen, in the global
     /// bottom-left coordinate space mouseLocation uses. Extends past the
     /// top edge: a cursor pinned to the top reports y == maxY exactly,
-    /// and NSRect.contains excludes its max edge — without the overhang,
+    /// and NSRect.contains excludes its max edge, without the overhang,
     /// hovering the notch itself counts as "outside".
     private func hoverZone(on screen: NSScreen, width: CGFloat, height: CGFloat) -> NSRect {
         NSRect(

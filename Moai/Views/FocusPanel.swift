@@ -17,7 +17,7 @@ struct FocusPanel: View {
         }
     }
 
-    // MARK: Idle — pick a session length
+    // MARK: Idle, pick a session length
 
     private var presets: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -165,7 +165,7 @@ struct FocusPanel: View {
         }
     }
 
-    /// During work the ring carries a faint breathing halo — the
+    /// During work the ring carries a faint breathing halo, the
     /// session is alive. Breaks and pauses sit still.
     @ViewBuilder
     private var breathingRing: some View {

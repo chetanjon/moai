@@ -1,7 +1,7 @@
 import Foundation
 import IOKit.ps
 
-/// Battery level for the collapsed island's wing. Polled lazily —
+/// Battery level for the collapsed island's wing. Polled lazily,
 /// battery percentages don't change fast enough to justify more.
 /// Room for CPU/memory later behind the same controller.
 @MainActor

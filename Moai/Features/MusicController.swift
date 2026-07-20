@@ -191,7 +191,7 @@ final class MusicController: ObservableObject {
         }
     }
 
-    /// Extraction runs on a 24×24 downsample, once per track change —
+    /// Extraction runs on a 24×24 downsample, once per track change,
     /// cheap enough to do inline where the artwork lands.
     private func updateAccent(from image: NSImage?) {
         let newValue = image.flatMap(AccentExtractor.accent(from:)) ?? Theme.accentFallback

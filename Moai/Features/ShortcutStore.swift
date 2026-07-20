@@ -1,6 +1,6 @@
 import AppKit
 
-/// User-defined quick links: websites, apps, folders — anything
+/// User-defined quick links: websites, apps, folders, anything
 /// NSWorkspace can open. Persisted as JSON in UserDefaults.
 @MainActor
 final class ShortcutStore: ObservableObject {

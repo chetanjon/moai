@@ -37,7 +37,7 @@ enum Theme {
 
     /// Bottom-lit lip so the collapsed droplet reads against the pure
     /// black strip of fullscreen apps; strongest where the belly hangs.
-    /// Deliberately faint — findable, never announcing itself.
+    /// Deliberately faint, findable, never announcing itself.
     static var lipLight: LinearGradient {
         LinearGradient(
             colors: [Color.white.opacity(0), Color.white.opacity(0.10)],
@@ -54,7 +54,7 @@ enum Theme {
     /// Meaningful guidance the user should be able to read: empty
     /// states, placeholders, footnotes. Brighter than tertiary.
     static let textHint = Color.white.opacity(0.48)
-    /// Purely decorative marks — never carries information.
+    /// Purely decorative marks, never carries information.
     static let textGhost = Color.white.opacity(0.28)
 
     static let danger = Color(red: 1.0, green: 0.45, blue: 0.45)
@@ -68,7 +68,7 @@ enum Theme {
     static let accentMint = Color(hue: 0.42, saturation: 0.38, brightness: 0.78)
     static let accentRose = Color(hue: 0.97, saturation: 0.42, brightness: 0.80)
 
-    /// nil means "album" — follow the artwork-derived accent.
+    /// nil means "album", follow the artwork-derived accent.
     static func fixedAccent(for mode: String) -> Color? {
         switch mode {
         case "silver": return accentFallback
@@ -82,36 +82,36 @@ enum Theme {
     // MARK: Scales
 
     /// The one place type sizes live. Views never call
-    /// `.system(size:)` directly — they pick a semantic role here.
+    /// `.system(size:)` directly, they pick a semantic role here.
     enum Fonts {
-        static let micro = Font.system(size: 9, weight: .semibold)
-        static let caption = Font.system(size: 10, weight: .medium)
-        static let label = Font.system(size: 11, weight: .semibold)
-        static let body = Font.system(size: 12)
-        static let bodyMedium = Font.system(size: 12, weight: .medium)
-        static let bodyEmphasis = Font.system(size: 12, weight: .semibold)
-        static let title = Font.system(size: 13, weight: .semibold)
+        static let micro = Font.system(size: 11, weight: .semibold)
+        static let caption = Font.system(size: 12, weight: .medium)
+        static let label = Font.system(size: 13, weight: .semibold)
+        static let body = Font.system(size: 14)
+        static let bodyMedium = Font.system(size: 14, weight: .medium)
+        static let bodyEmphasis = Font.system(size: 14, weight: .semibold)
+        static let title = Font.system(size: 15, weight: .semibold)
         /// Reading text: answers and the input line. Same size as
-        /// title, regular weight — long text at semibold shouts.
-        static let reading = Font.system(size: 13)
-        static let numeral = Font.system(size: 20, weight: .semibold, design: .monospaced)
-        static let display = Font.system(size: 30, weight: .semibold, design: .monospaced)
+        /// title, regular weight, long text at semibold shouts.
+        static let reading = Font.system(size: 15)
+        static let numeral = Font.system(size: 22, weight: .semibold, design: .monospaced)
+        static let display = Font.system(size: 32, weight: .semibold, design: .monospaced)
 
         // Monospaced variants, reserved for time and numbers.
-        static let microMono = Font.system(size: 9, weight: .medium, design: .monospaced)
-        static let captionMono = Font.system(size: 10, weight: .medium, design: .monospaced)
-        static let labelMono = Font.system(size: 11, weight: .semibold, design: .monospaced)
-        static let bodyMono = Font.system(size: 12, design: .monospaced)
-        static let bodyEmphasisMono = Font.system(size: 12, weight: .semibold, design: .monospaced)
-        static let counterMono = Font.system(size: 15, weight: .semibold, design: .monospaced)
+        static let microMono = Font.system(size: 11, weight: .medium, design: .monospaced)
+        static let captionMono = Font.system(size: 12, weight: .medium, design: .monospaced)
+        static let labelMono = Font.system(size: 13, weight: .semibold, design: .monospaced)
+        static let bodyMono = Font.system(size: 14, design: .monospaced)
+        static let bodyEmphasisMono = Font.system(size: 14, weight: .semibold, design: .monospaced)
+        static let counterMono = Font.system(size: 17, weight: .semibold, design: .monospaced)
 
         /// SF Symbol sizing, one scale for every glyph in the app.
         enum IconScale: CGFloat {
-            case xs = 9
-            case s = 10
-            case m = 12
-            case l = 14
-            case xl = 20
+            case xs = 11
+            case s = 12
+            case m = 14
+            case l = 16
+            case xl = 22
         }
 
         static func icon(_ scale: IconScale, weight: Font.Weight = .semibold) -> Font {
@@ -151,7 +151,7 @@ enum Theme {
 
     /// Motion personality, user-selectable in settings. Serene is the
     /// default: glides and slow breath, never a visible bounce. Still
-    /// is pure glass — no ambient motion at all.
+    /// is pure glass, no ambient motion at all.
     enum Feel: String {
         case still, serene, balanced, lively
 

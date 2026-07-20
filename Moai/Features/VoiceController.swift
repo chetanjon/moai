@@ -39,11 +39,11 @@ final class VoiceController: NSObject, ObservableObject {
             return
         }
         // isAvailable / supportsOnDeviceRecognition can read false
-        // spuriously right after launch while speech assets warm up —
+        // spuriously right after launch while speech assets warm up,
         // never block on them. Record regardless; if recognition then
         // produces nothing, these become the diagnosis.
         availabilityHint = !recognizer.isAvailable
-            ? "Speech recognition isn't available right now — try again in a moment."
+            ? "Speech recognition isn't available right now, try again in a moment."
             : (!recognizer.supportsOnDeviceRecognition
                 ? "On-device speech may still be downloading for your language."
                 : nil)
@@ -87,7 +87,7 @@ final class VoiceController: NSObject, ObservableObject {
                 guard let self else { return }
                 self.transcript = text
                 // The final result carries the completed tail of the
-                // sentence — deliver on it rather than on a fixed beat,
+                // sentence, deliver on it rather than on a fixed beat,
                 // or trailing words ("...at 6 pm") get truncated.
                 if isFinal {
                     self.deliver()
@@ -111,7 +111,7 @@ final class VoiceController: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: timeout)
     }
 
-    /// Tear down without delivering anything — the user cancelled.
+    /// Tear down without delivering anything, the user cancelled.
     func cancel() {
         finishTimeout?.cancel()
         finishTimeout = nil

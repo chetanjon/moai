@@ -44,11 +44,11 @@ struct SettingsPane: View {
                     divider
                     toggleRow("Reminders", $showReminders)
                     divider
-                    toggleRow("Go — shortcuts", $toolGo)
+                    toggleRow("Shortcuts", $toolGo)
                     divider
-                    toggleRow("Clips — clipboard", $toolClips)
+                    toggleRow("Clipboard", $toolClips)
                     divider
-                    toggleRow("Shelf — files", $toolShelf)
+                    toggleRow("Files", $toolShelf)
                     divider
                     toggleRow("Focus & timers", $toolFocus)
                 }

@@ -46,7 +46,7 @@ enum KeychainStore {
 
     /// One-time move of a legacy UserDefaults secret into the Keychain.
     /// The defaults copy is only removed once the Keychain verifiably
-    /// holds the value — a failed write must never destroy the last copy.
+    /// holds the value, a failed write must never destroy the last copy.
     static func migrateFromDefaults(key: String, account: String) {
         guard let legacy = UserDefaults.standard.string(forKey: key),
               !legacy.isEmpty

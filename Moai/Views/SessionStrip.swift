@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One strip for anything counting down — a pomodoro session or a
+/// One strip for anything counting down, a pomodoro session or a
 /// plain timer. Same ring, same grammar; tap to open the Focus pane.
 struct SessionStrip: View {
     enum Kind {

@@ -9,6 +9,7 @@ extension NoiseEngine.NoiseColor {
         case .rain: return "Rain"
         case .fire: return "Fire"
         case .cafe: return "Café"
+        case .construction: return "Construction"
         }
     }
 
@@ -20,17 +21,18 @@ extension NoiseEngine.NoiseColor {
         case .rain: return "cloud.rain.fill"
         case .fire: return "flame.fill"
         case .cafe: return "cup.and.saucer.fill"
+        case .construction: return "hammer.fill"
         }
     }
 }
 
 /// The one owner of ambient sound. The chips row, focus sessions, and
-/// voice commands all speak to this — so "what's playing" has exactly
+/// voice commands all speak to this, so "what's playing" has exactly
 /// one answer, and the collapsed island can show it.
 @MainActor
 final class AmbienceController: ObservableObject {
     /// The soundscape currently sounding (nil = silence). Pauses
-    /// during focus breaks keep this set — the sound comes back.
+    /// during focus breaks keep this set, the sound comes back.
     @Published private(set) var active: NoiseEngine.NoiseColor?
 
     @Published var volume: Double = 0.7 {

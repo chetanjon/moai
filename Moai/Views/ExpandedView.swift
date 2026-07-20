@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The island's open form: one state, voice-first. There is no text bar
-/// and no More/Less — you speak (the mic, or hold the notch), and the
+/// and no More/Less, you speak (the mic, or hold the notch), and the
 /// island shows only the blocks you keep on, sizing itself to fit.
 struct ExpandedView: View {
     @ObservedObject var model: NotchViewModel
@@ -10,7 +10,7 @@ struct ExpandedView: View {
     @ObservedObject var focus: FocusController
     @ObservedObject var ambience: AmbienceController
 
-    // Modular blocks — each shows only if the user keeps it on. Media,
+    // Modular blocks, each shows only if the user keeps it on. Media,
     // ambience and the tools are on out of the box; your day (calendar,
     // reminders) is opt-in, so a fresh island stays quiet and private.
     @AppStorage("showMedia") private var showMedia = true
@@ -80,7 +80,7 @@ struct ExpandedView: View {
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
         .background(
-            // The island hugs its content — driven straight from geometry
+            // The island hugs its content, driven straight from geometry
             // (a `.preference`/`.onPreferenceChange` pair silently failed
             // in this hierarchy, freezing the island at its default size).
             GeometryReader { geo in
@@ -108,7 +108,7 @@ struct ExpandedView: View {
         }
     }
 
-    /// Media (if on and something's playing) with the persistent mic —
+    /// Media (if on and something's playing) with the persistent mic,
     /// the voice affordance is always reachable even when media is off.
     private var topRow: some View {
         HStack(spacing: Theme.Space.l) {
@@ -163,7 +163,7 @@ struct ExpandedView: View {
     }
 }
 
-/// The voice affordance: tap to talk, tap again to run — or hold the
+/// The voice affordance: tap to talk, tap again to run, or hold the
 /// notch. Always present, whatever else the island is showing.
 private struct MicButton: View {
     let action: () -> Void
@@ -181,7 +181,7 @@ private struct MicButton: View {
         }
         .buttonStyle(PressableStyle())
         .onHover { hovered = $0 }
-        .help("Speak — or hold the notch")
+        .help("Speak, or hold the notch")
         .animation(Theme.Motion.hover, value: hovered)
     }
 }

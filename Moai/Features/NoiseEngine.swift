@@ -2,7 +2,7 @@ import AVFoundation
 
 /// Ambience with two engines: brown/white/pink are synthesized in real
 /// time (a source node, click-free gain ramps); rain and cafe are real
-/// field recordings, looped with faded edges. Everything fades —
+/// field recordings, looped with faded edges. Everything fades,
 /// nothing clicks, nothing jumps.
 final class NoiseEngine {
     enum NoiseColor: String, CaseIterable {
@@ -12,6 +12,7 @@ final class NoiseEngine {
         case rain
         case fire
         case cafe
+        case construction
     }
 
     private let engine = AVAudioEngine()
@@ -45,6 +46,12 @@ final class NoiseEngine {
     private var pink1: Float = 0
     private var pink2: Float = 0
     private var whiteLast: Float = 0
+
+    // Construction: a slow, decaying low-frequency impact riding a brown
+    // rumble. Distance (two blocks) is the low-pass in both.
+    private var constrPhase = 0
+    private var constrEnv: Float = 0
+    private var constrOsc: Float = 0
 
     private(set) var isRunning = false
 
@@ -87,7 +94,7 @@ final class NoiseEngine {
             current = color
             start(color)
         } else {
-            // Synth -> synth: duck, swap, rise — a hard spectrum change
+            // Synth -> synth: duck, swap, rise, a hard spectrum change
             // sounds like a glitch.
             targetGain = 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) { [weak self] in
@@ -140,6 +147,11 @@ final class NoiseEngine {
         else { return }
         fresh.numberOfLoops = -1
         fresh.volume = 0
+        // Café ran hurried; ease the tempo so the murmur sits back.
+        if color == .cafe {
+            fresh.enableRate = true
+            fresh.rate = 0.82
+        }
         fresh.play()
         fresh.setVolume(fileLevel, fadeDuration: 0.8)
         player = fresh
@@ -178,7 +190,7 @@ final class NoiseEngine {
     }
 
     private func nextSample() -> Float {
-        // ~50ms exponential ramp at 48k — click-free starts, stops,
+        // ~50ms exponential ramp at 48k, click-free starts, stops,
         // pauses, and color changes.
         gain += (targetGain - gain) * 0.0004
         if targetGain == 0, gain < 0.0005 { return 0 }
@@ -199,6 +211,23 @@ final class NoiseEngine {
         case .brown:
             brownLast = (brownLast + 0.02 * white) / 1.02
             value = brownLast * 3.2
+        case .construction:
+            // A brown rumble carrying a muffled impact roughly twice a
+            // second, each with a fast attack and a long decay — a pile
+            // driver or hammer heard through the walls two blocks over.
+            brownLast = (brownLast + 0.02 * white) / 1.02
+            let rumble = brownLast * 2.4
+            constrPhase += 1
+            if constrPhase >= 24000 {
+                constrPhase = 0
+                constrEnv = 1
+                constrOsc = 0
+            }
+            constrEnv *= 0.99935
+            let thud = sinf(constrOsc) * constrEnv * 0.7
+            constrOsc += 2 * Float.pi * 68 / 48000
+            if constrOsc > 2 * Float.pi { constrOsc -= 2 * Float.pi }
+            value = rumble * 0.5 + thud
         case .rain, .fire, .cafe:
             value = 0
         }

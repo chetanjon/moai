@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Pulls a single quiet accent color out of album artwork.
-/// Downsample + hue-bucket, not an area average — averaging colorful
+/// Downsample + hue-bucket, not an area average, averaging colorful
 /// art yields muddy brown.
 enum AccentExtractor {
     /// nil means the artwork is effectively monochrome; callers should

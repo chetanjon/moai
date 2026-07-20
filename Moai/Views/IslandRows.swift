@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The music row, compact: artwork, title/artist, a slim scrubber, and
-/// transport. Volume and timestamps are gone — they made the row wide
-/// for little gain; the system keys handle volume, the bar shows time.
+/// The music row: dimensional artwork that glows while it plays, a
+/// now-playing equalizer, title/artist, and a scrubber with elapsed and
+/// total time. Rich but still one tight block, volume lives on the
+/// system keys, not here.
 struct MusicRow: View {
     @ObservedObject var music: MusicController
     @Environment(\.moaiAccent) private var accent
@@ -11,9 +12,9 @@ struct MusicRow: View {
     var body: some View {
         if let playing = music.nowPlaying {
             HStack(spacing: Theme.Space.l) {
-                artworkView
+                artworkView(isPlaying: playing.isPlaying)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: Theme.Space.s) {
                         Text(playing.track)
                             .font(Theme.Fonts.bodyEmphasis)
@@ -23,6 +24,11 @@ struct MusicRow: View {
                             .font(Theme.Fonts.caption)
                             .foregroundStyle(Theme.textSecondary)
                             .lineLimit(1)
+                        Spacer(minLength: 0)
+                        if playing.isPlaying {
+                            NowPlayingBars(accent: accent)
+                                .transition(.opacity)
+                        }
                     }
                     Slider(
                         value: Binding(
@@ -39,6 +45,13 @@ struct MusicRow: View {
                     )
                     .controlSize(.mini)
                     .tint(accent)
+                    HStack {
+                        Text(Self.clock(scrubPosition ?? playing.position))
+                        Spacer()
+                        Text(Self.clock(playing.duration))
+                    }
+                    .font(Theme.Fonts.microMono)
+                    .foregroundStyle(Theme.textGhost)
                 }
 
                 HStack(spacing: Theme.Space.s) {
@@ -51,8 +64,12 @@ struct MusicRow: View {
                         Image(systemName: playing.isPlaying ? "pause.fill" : "play.fill")
                             .font(Theme.Fonts.icon(.m, weight: .bold))
                             .foregroundStyle(Color.black)
-                            .frame(width: 28, height: 28)
-                            .background(Circle().fill(Color.white.opacity(0.94)))
+                            .frame(width: 32, height: 32)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.96))
+                                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                            )
                             .contentShape(Circle())
                     }
                     .buttonStyle(PressableStyle())
@@ -61,10 +78,11 @@ struct MusicRow: View {
                     }
                 }
             }
+            .animation(Theme.Motion.content, value: playing.isPlaying)
         }
     }
 
-    private var artworkView: some View {
+    private func artworkView(isPlaying: Bool) -> some View {
         Group {
             if let artwork = music.artwork {
                 Image(nsImage: artwork)
@@ -79,22 +97,80 @@ struct MusicRow: View {
                 }
             }
         }
-        .frame(width: 36, height: 36)
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .frame(width: 46, height: 46)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // Top-lit sheen: the art reads as a physical, lit surface.
         .overlay(
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+            LinearGradient(
+                colors: [Color.white.opacity(0.22), .clear],
+                startPoint: .top, endPoint: .center
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .allowsHitTesting(false)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+        )
+        // Album-colored glow while playing; a plain drop shadow when paused.
+        .shadow(
+            color: isPlaying ? accent.opacity(0.38) : Color.black.opacity(0.4),
+            radius: isPlaying ? 9 : 5,
+            y: 3
+        )
+    }
+
+    private static func clock(_ seconds: Double) -> String {
+        let total = max(0, Int(seconds))
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 
-/// The ambience row: six icons, no words. The active one tints; its
-/// volume appears only once something is playing.
-struct AmbienceRow: View {
-    @ObservedObject var ambience: AmbienceController
+/// A tiny live equalizer, three accent bars breathing while a track
+/// plays. Still glass (or Reduce Motion) shows them at rest.
+struct NowPlayingBars: View {
+    let accent: Color
 
     var body: some View {
-        HStack(spacing: Theme.Space.xs) {
+        if Theme.Feel.current.ambient {
+            TimelineView(.animation(minimumInterval: 1 / 12)) { context in
+                let t = context.date.timeIntervalSinceReferenceDate
+                bars { index in
+                    3 + 6 * (0.5 + 0.5 * sin(t * 4.2 + Double(index) * 1.7))
+                }
+            }
+        } else {
+            bars { index in [5.0, 9.0, 6.0][index] }
+        }
+    }
+
+    private func bars(_ height: @escaping (Int) -> CGFloat) -> some View {
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(accent)
+                    .frame(width: 2.5, height: height(index))
+            }
+        }
+        .frame(height: 12)
+    }
+}
+
+/// The ambience row: a label that names the feature (and the sound
+/// that's playing), then the sound icons. Hover an icon for its name;
+/// the active one tints and reveals a volume slider.
+struct AmbienceRow: View {
+    @ObservedObject var ambience: AmbienceController
+    @Environment(\.moaiAccent) private var accent
+
+    var body: some View {
+        HStack(spacing: Theme.Space.s) {
+            Text(ambience.active?.displayName ?? "Ambience")
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(ambience.active != nil ? accent : Theme.textTertiary)
+                .lineLimit(1)
+                .frame(width: 92, alignment: .leading)
+
             ForEach(NoiseEngine.NoiseColor.allCases, id: \.self) { color in
                 NoiseButton(
                     color: color,
@@ -117,7 +193,7 @@ struct AmbienceRow: View {
     }
 }
 
-/// The answer surface: the reply, the working state, or — when idle —
+/// The answer surface: the reply, the working state, or, when idle,
 /// a voice-forward hint. Input is voice (the mic, or holding the notch),
 /// not a text field.
 struct AnswerView: View {
@@ -139,7 +215,7 @@ struct AnswerView: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else if model.answer.isEmpty {
                 VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    Text("Hold the notch or tap the mic — I'm listening.")
+                    Text("Hold the notch or tap the mic, I'm listening.")
                         .font(Theme.Fonts.reading)
                         .foregroundStyle(Theme.textHint)
                     Text("remind me to call amma at 6 · what's on today · focus 25 · note: an idea")

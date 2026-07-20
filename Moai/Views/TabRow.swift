@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// The lower-panel switcher: Today (when your day is turned on) plus
-/// whichever tools you keep, and the settings gear. Items are icon-only
-/// until selected — the active one wears its label, so the row stays
-/// quiet.
+/// whichever tools you keep, and the settings gear. Every item wears its
+/// name, so the features are findable at a glance, not guessed from an
+/// icon.
 struct Switcher: View {
     @ObservedObject var model: NotchViewModel
     let todayEnabled: Bool
@@ -16,7 +16,7 @@ struct Switcher: View {
             }
             ForEach(tools, id: \.self) { item($0) }
             Spacer(minLength: 0)
-            HoverGlyphButton(symbol: "gearshape", scale: .s, tint: Theme.textTertiary) {
+            HoverGlyphButton(symbol: "gearshape", scale: .m, tint: Theme.textTertiary) {
                 withAnimation(Theme.Motion.content) { model.pane = .settings }
             }
         }
@@ -30,14 +30,13 @@ struct Switcher: View {
             HStack(spacing: 5) {
                 Image(systemName: Self.symbol(tab))
                     .font(Theme.Fonts.icon(.s))
-                if on {
-                    Text(Self.label(tab)).font(Theme.Fonts.label)
-                }
+                Text(Self.label(tab))
+                    .font(Theme.Fonts.label)
             }
-            .foregroundStyle(on ? Theme.textPrimary : Theme.textTertiary)
-            .padding(.horizontal, Theme.Space.s)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(Color.white.opacity(on ? 0.08 : 0)))
+            .foregroundStyle(on ? Theme.textPrimary : Theme.textSecondary)
+            .padding(.horizontal, Theme.Space.m)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.white.opacity(on ? 0.10 : 0)))
             .contentShape(Capsule())
         }
         .buttonStyle(PressableStyle())
@@ -50,7 +49,7 @@ struct Switcher: View {
         case .ask: return "sparkles"
         case .links: return "square.grid.2x2"
         case .clipboard: return "doc.on.clipboard"
-        case .shelf: return "tray"
+        case .shelf: return "tray.full"
         case .focus: return "timer"
         }
     }
@@ -59,9 +58,9 @@ struct Switcher: View {
         switch tab {
         case .today: return "Today"
         case .ask: return "Answer"
-        case .links: return "Go"
-        case .clipboard: return "Clips"
-        case .shelf: return "Shelf"
+        case .links: return "Shortcuts"
+        case .clipboard: return "Clipboard"
+        case .shelf: return "Files"
         case .focus: return "Focus"
         }
     }

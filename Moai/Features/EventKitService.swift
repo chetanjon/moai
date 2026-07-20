@@ -98,7 +98,7 @@ final class EventKitService: ObservableObject {
             reminder.dueDateComponents.flatMap { calendar.date(from: $0) }
         }
         reminders = fetched
-            // Due today or overdue, plus anything undated — the glance is
+            // Due today or overdue, plus anything undated, the glance is
             // "what's open now", not the whole backlog.
             .filter { reminder in
                 guard let due = dueDate(reminder) else { return true }
@@ -136,7 +136,7 @@ final class EventKitService: ObservableObject {
         let reminder = EKReminder(eventStore: store)
         reminder.title = title
         // No default list is a real configuration on Macs without
-        // iCloud Reminders — fall back to any writable list.
+        // iCloud Reminders, fall back to any writable list.
         guard let calendar = store.defaultCalendarForNewReminders()
             ?? store.calendars(for: .reminder).first(where: { $0.allowsContentModifications })
         else {
@@ -158,7 +158,7 @@ final class EventKitService: ObservableObject {
         if let due {
             return "Set. \(Self.formatter.string(from: due))."
         }
-        return "Set, no time attached — it won't ring. Add one like \"at 6\" next time."
+        return "Set, no time attached, it won't ring. Add one like \"at 6\" next time."
     }
 
     func addEvent(_ title: String, start: Date) async -> String {
@@ -221,7 +221,7 @@ final class EventKitService: ObservableObject {
         timeFormatter.dateFormat = "h:mm a"
         return reminders.map { reminder in
             if let due = reminder.due {
-                return "☐ \(reminder.title) — \(timeFormatter.string(from: due))"
+                return "☐ \(reminder.title), \(timeFormatter.string(from: due))"
             }
             return "☐ \(reminder.title)"
         }.joined(separator: "\n")
@@ -239,6 +239,6 @@ final class EventKitService: ObservableObject {
             return "No open reminder matching \"\(query)\"."
         }
         await complete(match)
-        return "Done — \(match.title)."
+        return "Done, \(match.title)."
     }
 }

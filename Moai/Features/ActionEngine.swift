@@ -70,7 +70,7 @@ final class ActionEngine {
 
         // Reminders. Prefix verbs are unambiguous, so they run before
         // the fuzzy contains() branches below can hijack them. Spoken
-        // phrasing varies — "set a reminder for X" must work as well as
+        // phrasing varies, "set a reminder for X" must work as well as
         // "remind me to X".
         let reminderPrefixes = [
             "remind me to ", "remind me ", "remind ",
@@ -175,7 +175,7 @@ final class ActionEngine {
             return "Back one."
         }
 
-        // Agenda — today or tomorrow
+        // Agenda, today or tomorrow
         let agendaish = ["agenda", "today", "tomorrow"].contains(lower)
             || lower.contains("calendar")
             || lower.contains("what's on") || lower.contains("whats on")
@@ -247,7 +247,7 @@ final class ActionEngine {
         return bareHourTime(text)
     }
 
-    /// Spoken relative times — "in 20 minutes", "in an hour" — which
+    /// Spoken relative times, "in 20 minutes", "in an hour", which
     /// NSDataDetector handles unreliably.
     private static func relativeTime(_ text: String) -> (Date, NSRange)? {
         guard let regex = try? NSRegularExpression(

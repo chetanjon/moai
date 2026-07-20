@@ -57,7 +57,7 @@ final class FocusController: ObservableObject {
     @Published var cycle = 1
     @Published var noiseColor: NoiseEngine.NoiseColor = .brown
 
-    /// Shared ambience owner — focus drives it, never a private engine.
+    /// Shared ambience owner, focus drives it, never a private engine.
     let ambience: AmbienceController
 
     init(ambience: AmbienceController) {

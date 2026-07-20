@@ -4,8 +4,8 @@ import FoundationModels
 #endif
 
 /// Which brain answers in the Do tab. "Mac" is Apple's on-device
-/// model — free, private, keyless; the cloud providers are fast,
-/// cheap tiers — notch questions want snappy answers, not
+/// model, free, private, keyless; the cloud providers are fast,
+/// cheap tiers, notch questions want snappy answers, not
 /// dissertations.
 enum AIProvider: String, CaseIterable {
     case local
@@ -55,7 +55,7 @@ enum AIProvider: String, CaseIterable {
     }
 
     /// The user's current pick, shared by typed and spoken input.
-    /// First run prefers the on-device model when the Mac has it —
+    /// First run prefers the on-device model when the Mac has it,
     /// Moai should answer out of the box, no key required.
     static var current: AIProvider {
         if let stored = AIProvider(
@@ -68,7 +68,7 @@ enum AIProvider: String, CaseIterable {
 
     /// Providers worth offering: the on-device model when this Mac
     /// supports it, plus any cloud provider with a key on file. With
-    /// neither, show the cloud providers — the chip stays
+    /// neither, show the cloud providers, the chip stays
     /// discoverable and the keyless hint explains what's missing.
     static var available: [AIProvider] {
         var pool: [AIProvider] = []
@@ -173,7 +173,7 @@ struct AIService {
 
     // MARK: On-device model
 
-    /// Apple's local model streams cumulative snapshots, not deltas —
+    /// Apple's local model streams cumulative snapshots, not deltas,
     /// diff against the last snapshot so the island types like the
     /// cloud providers do.
     private static func localStream(prompt: String) -> AsyncThrowingStream<String, Error> {
@@ -224,7 +224,7 @@ struct AIService {
         let urlString: String
         switch provider {
         case .local:
-            // Never reached — stream() routes .local to localStream().
+            // Never reached, stream() routes .local to localStream().
             throw AIError.badResponse("The on-device model has no endpoint.")
         case .claude:
             urlString = "https://api.anthropic.com/v1/messages"

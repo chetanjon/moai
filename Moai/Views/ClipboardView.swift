@@ -79,6 +79,14 @@ private struct ClipRow: View {
         .hoverHighlight(radius: Theme.Radius.row)
         .onHover { hovered = $0 }
         .animation(Theme.Motion.hover, value: hovered)
+        // Drag a clip back out to any app: a screenshot travels as
+        // its file, text as text.
+        .onDrag {
+            if let url = clip.imageURL {
+                return NSItemProvider(object: url as NSURL)
+            }
+            return NSItemProvider(object: (clip.text ?? "") as NSString)
+        }
     }
 
     @ViewBuilder

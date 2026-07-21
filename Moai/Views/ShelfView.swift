@@ -50,9 +50,18 @@ private struct ShelfRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Group {
-                IconActionButton(symbol: "square.and.arrow.up") {
-                    shelf.airDrop(item)
+                IconActionButton(symbol: "doc.on.doc") {
+                    shelf.copyToPasteboard(item)
                 }
+                // The full share sheet (AirDrop, Messages, Mail...),
+                // not a one-way AirDrop jump.
+                ShareLink(item: item.url) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(Theme.Fonts.icon(.s))
+                        .foregroundStyle(Theme.textSecondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableStyle())
                 if shelf.canExtractText(item) {
                     IconActionButton(symbol: "sparkles", tint: accent) {
                         guard let text = shelf.extractText(item) else { return }

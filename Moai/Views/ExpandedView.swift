@@ -88,7 +88,9 @@ struct ExpandedView: View {
         }
         .padding(.horizontal, Theme.Space.xl)
         .padding(.top, model.notchSize.height + Theme.Space.m)
-        .padding(.bottom, Theme.Space.m)
+        // The expanded shell rounds off at 44pt; the last row needs
+        // real clearance or the curve shaves its corners.
+        .padding(.bottom, Theme.Space.l)
         .foregroundStyle(.white)
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
@@ -339,6 +341,8 @@ struct TodayView: View {
         let hasEvents = showCalendar && !events.calendarDenied && !events.events.isEmpty
         let hasReminders = showReminders && !events.remindersDenied && !events.reminders.isEmpty
         let denials = deniedLines
+        let rowCount = (hasEvents ? events.events.count : 0)
+            + (hasReminders ? events.reminders.count : 0)
         VStack(alignment: .leading, spacing: Theme.Space.s) {
             header
             ForEach(denials, id: \.self) { line in
@@ -346,10 +350,18 @@ struct TodayView: View {
                     .font(Theme.Fonts.caption)
                     .foregroundStyle(Theme.textHint)
             }
-            if hasEvents { eventRows }
-            if hasReminders {
-                reminderRows
-                    .padding(.top, hasEvents ? Theme.Space.xs : 0)
+            // A short day sits inline; a crowded one scrolls inside a
+            // fixed box instead of pushing the island past the panel
+            // window, which sliced the last rows flat.
+            if rowCount > 8 {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Theme.Space.s) {
+                        dayRows(hasEvents: hasEvents, hasReminders: hasReminders)
+                    }
+                }
+                .frame(height: Theme.Panel.list)
+            } else {
+                dayRows(hasEvents: hasEvents, hasReminders: hasReminders)
             }
             if !hasEvents, !hasReminders, denials.isEmpty {
                 clearDay
@@ -357,6 +369,15 @@ struct TodayView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .task { await events.refresh() }
+    }
+
+    @ViewBuilder
+    private func dayRows(hasEvents: Bool, hasReminders: Bool) -> some View {
+        if hasEvents { eventRows }
+        if hasReminders {
+            reminderRows
+                .padding(.top, hasEvents ? Theme.Space.xs : 0)
+        }
     }
 
     /// One header for the whole day, anchored by the date.

@@ -87,9 +87,12 @@ final class ShelfStore: ObservableObject {
         UserDefaults.standard.set(blobs, forKey: defaultsKey)
     }
 
-    func airDrop(_ item: Item) {
-        NSSharingService(named: .sendViaAirDrop)?
-            .perform(withItems: [item.url])
+    /// Copy the file itself: paste lands the file in Finder and the
+    /// image in image-aware apps.
+    func copyToPasteboard(_ item: Item) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([item.url as NSURL])
     }
 
     /// Cheap check for the sparkles affordance. The old path ran the

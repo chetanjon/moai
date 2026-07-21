@@ -137,9 +137,10 @@ final class NotchWindowController {
     /// The panel is a fixed transparent region at the top of the screen.
     /// The island animates inside it, so the window never resizes. Its
     /// height must clear the tallest island (Full + a session strip +
-    /// the Settings pane measures ~640pt); clear areas hit-test through,
-    /// so the extra room costs nothing.
-    private let panelSize = CGSize(width: 820, height: 720)
+    /// the Settings pane measures ~640pt) and its width the chat
+    /// island's 840; clear areas hit-test through, so the extra room
+    /// costs nothing.
+    private let panelSize = CGSize(width: 1000, height: 720)
 
     /// Measure the target screen and compute the panel frame; shared
     /// by first show and every display change after it.

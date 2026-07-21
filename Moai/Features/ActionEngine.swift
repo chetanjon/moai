@@ -86,8 +86,14 @@ final class ActionEngine {
         // The inversion: "add walking to my reminders (at 8)" puts
         // the thing before the word reminder, and prefix matching
         // never sees it. Longest tails first, so "reminders list"
-        // is not half-eaten by "reminders".
-        let inversionLeads = ["add ", "put ", "set ", "create ", "make "]
+        // is not half-eaten by "reminders". The recognizer writes
+        // "add" as at, and, ad, or had (seen live); with the
+        // reminders tail present the intent is unambiguous, so the
+        // mishears are welcome too.
+        let inversionLeads = [
+            "add ", "put ", "set ", "create ", "make ", "save ",
+            "at ", "and ", "ad ", "had ",
+        ]
         let inversionTails = [
             "to my reminders list", "to my reminder list",
             "on my reminders list", "in my reminders app",

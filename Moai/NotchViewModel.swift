@@ -382,6 +382,9 @@ final class NotchViewModel: ObservableObject {
         if hovering {
             hoverCollapseWork?.cancel()
             hoverCollapseWork = nil
+            // The reader arrived; the voice answer is theirs now.
+            answerCollapseWork?.cancel()
+            answerCollapseWork = nil
             let expandOnHover = UserDefaults.standard
                 .object(forKey: "expandOnHover") as? Bool ?? true
             if state == .collapsed, expandOnHover { expand() }
@@ -450,7 +453,32 @@ final class NotchViewModel: ObservableObject {
                 self.submit(spoken)
                 self.lastHeard = spoken
             }
+            // A voice answer opened the island without the cursor
+            // ever visiting; give it a readable moment, then slip
+            // shut on its own. A hover cancels this, the reader has
+            // taken over.
+            self.scheduleVoiceCollapse()
         }
+    }
+
+    private var answerCollapseWork: DispatchWorkItem?
+
+    private func scheduleVoiceCollapse(after delay: TimeInterval = 5) {
+        answerCollapseWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            // Still thinking or still streaming: check back shortly.
+            if self.isWorking {
+                self.scheduleVoiceCollapse(after: 3)
+                return
+            }
+            guard self.state == .expanded, !self.isHovering,
+                  self.draftPrompt.isEmpty, self.pendingContext == nil,
+                  self.pane == .none, self.tab != .chat else { return }
+            self.collapse()
+        }
+        answerCollapseWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// The global hotkey: tap to listen from anywhere, tap again to

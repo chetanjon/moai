@@ -271,10 +271,14 @@ final class EventKitService: ObservableObject {
             return "Couldn't save that. \(error.localizedDescription)"
         }
         await reloadReminders()
+        // Name the list: a reminder that lands in an unexpected list,
+        // or an undated one hiding from the Today smart list, reads
+        // as "it never saved" without this one word of truth.
         if let due {
-            return "Set. \(Self.formatter.string(from: due))."
+            return "Set. \(Self.formatter.string(from: due)). In \(calendar.title)."
         }
-        return "Set, no time attached, it won't ring. Add one like \"at 6\" next time."
+        return "Set in \(calendar.title), no time attached, it won't ring."
+            + " Add one like \"at 6\" next time."
     }
 
     func addEvent(_ title: String, start: Date) async -> String {

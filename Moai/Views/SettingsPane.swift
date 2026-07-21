@@ -32,6 +32,7 @@ struct SettingsPane: View {
     @AppStorage("toolNotes") private var toolNotes = true
     @AppStorage("toolFocus") private var toolFocus = true
     @AppStorage("toolChat") private var toolChat = true
+    @AppStorage(ChatController.serviceKey) private var chatService = "claude"
 
     @AppStorage("expandOnHover") private var expandOnHover = true
     @AppStorage(HotkeySummon.settingKey) private var summonKey = "optSpace"
@@ -89,7 +90,18 @@ struct SettingsPane: View {
                     divider
                     toggleRow("Focus & timers", $toolFocus)
                     divider
-                    toggleRow("Claude chat", $toolChat)
+                    toggleRow("Chat", $toolChat)
+                    if toolChat {
+                        row("Service") {
+                            picker($chatService, [
+                                ("Claude", "claude"), ("ChatGPT", "chatgpt"),
+                                ("Gemini", "gemini"),
+                            ])
+                        }
+                        Text("Your own account, in a small built-in browser. Moai is not affiliated with Anthropic, OpenAI, or Google.")
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textHint)
+                    }
                 }
                 section("Island", reveal: 1) {
                     row("Summon voice") {

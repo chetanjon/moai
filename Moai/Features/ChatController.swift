@@ -1,15 +1,58 @@
 import SwiftUI
 import WebKit
 
-/// Claude in the island: the real claude.ai session in a panel, no
-/// API key. Sign in once; the login lives in the default website
-/// data store and survives relaunches. The web view is created on
-/// first use and kept alive so the conversation survives collapses.
+/// A chat service in the island: the real site in a panel, no API
+/// key. The user picks whose subscription they bring (Claude,
+/// ChatGPT, or Gemini) and signs in with their own account; the
+/// login lives in the default website data store and survives
+/// relaunches. The web view is created on first use and kept alive
+/// so the conversation survives collapses. Moai is not affiliated
+/// with any of these services; this is a small site-specific browser.
 @MainActor
 final class ChatController: NSObject, ObservableObject {
-    static let homeURL = URL(string: "https://claude.ai/new")!
+    enum Service: String, CaseIterable {
+        case claude, chatgpt, gemini
+
+        var home: URL {
+            switch self {
+            case .claude: return URL(string: "https://claude.ai/new")!
+            case .chatgpt: return URL(string: "https://chatgpt.com")!
+            case .gemini: return URL(string: "https://gemini.google.com/app")!
+            }
+        }
+    }
+
+    /// Settings key holding the chosen service's raw value.
+    static let serviceKey = "chatService"
+
+    private var service: Service {
+        Service(rawValue: UserDefaults.standard.string(forKey: Self.serviceKey) ?? "") ?? .claude
+    }
 
     @Published private(set) var isLoading = true
+    private var lastServiceRaw: String?
+
+    override init() {
+        super.init()
+        lastServiceRaw = UserDefaults.standard.string(forKey: Self.serviceKey)
+        // The settings picker writes a default; the pane follows
+        // without a relaunch, but only if it was ever opened.
+        NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.serviceMayHaveChanged() }
+        }
+    }
+
+    private func serviceMayHaveChanged() {
+        let raw = UserDefaults.standard.string(forKey: Self.serviceKey)
+        guard raw != lastServiceRaw else { return }
+        lastServiceRaw = raw
+        guard createdWebView != nil else { return }
+        goHome()
+    }
 
     /// A quiet coat of Moai over claude.ai: pure black behind the
     /// chat so the card melts into the island, and slim scrollbars.
@@ -20,7 +63,10 @@ final class ChatController: NSObject, ObservableObject {
         + "::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}"
         + "::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}"
 
-    private(set) lazy var webView: WKWebView = {
+    private var createdWebView: WKWebView?
+
+    var webView: WKWebView {
+        if let createdWebView { return createdWebView }
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         let styler = WKUserScript(
@@ -44,12 +90,13 @@ final class ChatController: NSObject, ObservableObject {
         // The pane is part of the island: dark, always.
         web.appearance = NSAppearance(named: .darkAqua)
         web.underPageBackgroundColor = .black
-        web.load(URLRequest(url: Self.homeURL))
+        web.load(URLRequest(url: service.home))
+        createdWebView = web
         return web
-    }()
+    }
 
     func goHome() {
-        webView.load(URLRequest(url: Self.homeURL))
+        webView.load(URLRequest(url: service.home))
     }
 
     func goBack() {

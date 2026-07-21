@@ -36,8 +36,13 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - Brow glyph on any clip attaches it to Do: summarize, rewrite, translate.
 
 **Shelf** (file drop)
-- Drag files onto the notch, drag out, one-tap AirDrop.
+- Drag files onto the notch, drag out, copy, or share.
 - Brow glyph on PDFs and text files: attach contents and question them.
+
+**Chat** (bring your own subscription)
+- A small built-in browser under the notch pointing at Claude, ChatGPT, or Gemini; pick the service in Settings.
+- You sign in with your own account, once; nothing is scraped, proxied, or automated, and no API key is involved.
+- Moai is not affiliated with or endorsed by Anthropic, OpenAI, or Google.
 
 **Deliberately cut:** webcam mirror, notes-as-panel, wallpapers, widget packs, agent monitoring.
 

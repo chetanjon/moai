@@ -74,6 +74,13 @@ struct ExpandedView: View {
                 panel
                     .transition(.opacity)
             }
+
+            // While a drag hovers, the body reaches further down the
+            // screen, so the release happens nowhere near the top
+            // edge and its Mission Control hot zone.
+            if model.isDropTargeted {
+                Color.clear.frame(height: 150)
+            }
         }
         .padding(.horizontal, Theme.Space.xl)
         .padding(.top, model.notchSize.height + Theme.Space.m)

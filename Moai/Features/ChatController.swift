@@ -11,10 +11,29 @@ final class ChatController: NSObject, ObservableObject {
 
     @Published private(set) var isLoading = true
 
+    /// A quiet coat of Moai over claude.ai: pure black behind the
+    /// chat so the card melts into the island, and slim scrollbars.
+    /// Unknown selectors no-op harmlessly if the site changes.
+    private static let blendCSS = "html,body{background:#000 !important}"
+        + ":root{--bg-000:#000;--bg-100:#000}"
+        + "::-webkit-scrollbar{width:6px;height:6px}"
+        + "::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}"
+        + "::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}"
+
     private(set) lazy var webView: WKWebView = {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
+        let styler = WKUserScript(
+            source: "var s=document.createElement('style');"
+                + "s.textContent=\"\(Self.blendCSS)\";"
+                + "document.documentElement.appendChild(s);",
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        )
+        configuration.userContentController.addUserScript(styler)
         let web = WKWebView(frame: .zero, configuration: configuration)
+        // Trackpad swipes travel the chat history like a browser.
+        web.allowsBackForwardNavigationGestures = true
         // Google's sign-in refuses embedded browsers by user agent;
         // Safari's own string keeps every login door open.
         web.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"

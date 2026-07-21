@@ -164,8 +164,9 @@ enum Theme {
         /// the week of stats.
         static let focus: CGFloat = 280
         static let settings: CGFloat = 300
-        /// The Claude chat pane wants reading room.
-        static let chat: CGFloat = 380
+        /// The Claude chat pane wants reading room; 440 leaves space
+        /// for the session strip inside the 720pt panel window.
+        static let chat: CGFloat = 440
     }
 
     /// Motion personality, user-selectable in settings. Serene is the

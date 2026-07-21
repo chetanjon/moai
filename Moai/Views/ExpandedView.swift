@@ -34,6 +34,12 @@ struct ExpandedView: View {
 
     private var todayEnabled: Bool { showCalendar || showReminders }
 
+    /// Chat gets a wider island: claude.ai needs the room to show
+    /// its recents and read like itself.
+    private var islandWidth: CGFloat {
+        model.tab == .chat && model.pane == .none ? 640 : 520
+    }
+
     private var enabledTools: [NotchViewModel.Tab] {
         var tools: [NotchViewModel.Tab] = []
         if toolGo { tools.append(.links) }
@@ -92,7 +98,7 @@ struct ExpandedView: View {
         .padding(.top, model.notchSize.height + Theme.Space.m)
         .padding(.bottom, Theme.Space.m + 2)
         .foregroundStyle(.white)
-        .frame(width: 520)
+        .frame(width: islandWidth)
         .fixedSize(horizontal: false, vertical: true)
         .background(
             // The island hugs its content, driven straight from geometry

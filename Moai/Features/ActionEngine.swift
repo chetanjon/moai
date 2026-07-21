@@ -43,6 +43,12 @@ final class ActionEngine {
             return Self.cheatSheet
         }
 
+        // The trail: what was heard, what happened. Turns every
+        // "it did nothing" into something readable.
+        if ["voice log", "what did you hear", "voice history"].contains(lower) {
+            return model.voiceLogRendered
+        }
+
         // Stops
         if ["stop focus", "end focus"].contains(lower) {
             model.focus.stop()
@@ -364,40 +370,53 @@ final class ActionEngine {
             return await model.events.agenda(dayOffset: lower.contains("tomorrow") ? 1 : 0)
         }
 
-        // Reminder recovery: speech sometimes garbles the opening verb
-        // ("said a reminder...") but keeps "remind(er)" intact somewhere.
-        // Runs last so explicit verbs always win.
-        let afterVerb: (rest: String, bare: Bool)? = {
-            if let range = text.range(of: "reminder", options: .caseInsensitive) {
-                let tail = String(text[range.upperBound...])
-                // "reminders" is the plural noun ("show my reminders"),
-                // not a save command.
-                guard !tail.lowercased().hasPrefix("s") else { return nil }
-                return (tail, false)
-            }
-            if let range = text.range(of: "remind", options: .caseInsensitive) {
-                return (String(text[range.upperBound...]), true)
-            }
-            return nil
-        }()
-        if let (tail, bare) = afterVerb {
-            var rest = tail.trimmingCharacters(in: .whitespaces)
-            if bare, rest.lowercased().hasPrefix("me ") {
-                rest = String(rest.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-            }
+        // The net, last of all verbs: a sentence that says remind and
+        // matched nothing above still becomes a reminder, unless it
+        // reads like a question. The transcript is a lossy channel
+        // (Bluetooth mics, mishears, dropped opening words); remind
+        // is the intent, the rest is scaffolding to strip. A rough
+        // title beats a silent miss every time.
+        let asksAQuestion = ["what", "show", "list", "which", "read",
+                             "how", "do i ", "did ", "any "]
+            .contains { lower.hasPrefix($0) }
+        if lower.contains("remind"), !asksAQuestion {
+            var rest = text
             var due: Date?
             if let (date, range) = Self.extractDate(rest) {
                 due = date
                 rest = Self.removing(range, from: rest)
             }
-            for connector in ["to ", "for ", "about ", "that "]
-            where rest.lowercased().hasPrefix(connector) {
-                rest = String(rest.dropFirst(connector.count))
-                    .trimmingCharacters(in: .whitespaces)
-                break
+            let scaffolding = [
+                "to my reminders list", "to my reminder list",
+                "on my reminders list", "to my reminders app",
+                "in my reminders app", "to my reminders",
+                "on my reminders", "in my reminders", "to reminders",
+                "in reminders", "my reminders", "remind me to",
+                "remind me", "a reminder", "the reminder",
+                "reminders", "reminder", "remind",
+            ]
+            for phrase in scaffolding {
+                while let range = rest.range(of: phrase, options: .caseInsensitive) {
+                    rest.removeSubrange(range)
+                }
             }
-            guard !rest.isEmpty else { return "Remind you to what?" }
-            return await model.events.addReminder(rest, due: due)
+            rest = Self.strippedOfPleasantries(Self.sanitized(rest))
+            var trimming = true
+            while trimming {
+                trimming = false
+                for connector in ["to ", "for ", "about ", "that ", "of ",
+                                  "add ", "put ", "set ", "saying ",
+                                  "says ", "said ", "say "]
+                where rest.lowercased().hasPrefix(connector) {
+                    rest = String(rest.dropFirst(connector.count))
+                        .trimmingCharacters(in: .whitespaces)
+                    trimming = true
+                }
+            }
+            if !rest.isEmpty {
+                return await model.events.addReminder(rest, due: due)
+            }
+            return "Remind you to what? Say the thing and a time."
         }
 
         return nil

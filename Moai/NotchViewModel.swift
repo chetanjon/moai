@@ -461,6 +461,24 @@ final class NotchViewModel: ObservableObject {
         }
     }
 
+    /// The last few utterances and what became of them, so "voice
+    /// log" turns any it-did-nothing report into a readable trail.
+    private(set) var voiceLog: [(heard: String, outcome: String)] = []
+
+    func logVoice(_ heard: String, outcome: String) {
+        voiceLog.append((heard, outcome))
+        if voiceLog.count > 5 { voiceLog.removeFirst() }
+    }
+
+    var voiceLogRendered: String {
+        guard !voiceLog.isEmpty else {
+            return "Nothing heard yet this session."
+        }
+        return voiceLog.map { entry in
+            "heard \u{201C}\(entry.heard)\u{201D}\n→ \(entry.outcome)"
+        }.joined(separator: "\n")
+    }
+
     private var answerCollapseWork: DispatchWorkItem?
 
     private func scheduleVoiceCollapse(after delay: TimeInterval = 5) {
@@ -559,8 +577,10 @@ final class NotchViewModel: ObservableObject {
             // Local verbs first: instant, offline, keyless.
             if let local = await engine.handle(text) {
                 answer = local
+                logVoice(text, outcome: local)
                 return
             }
+            logVoice(text, outcome: "no verb matched, went to the model")
 
             // Beyond local verbs, freeform questions go to a model. The
             // Mac's on-device model answers with no key; a cloud provider

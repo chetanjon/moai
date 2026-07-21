@@ -175,6 +175,12 @@ final class ActionEngine {
             return "Back one."
         }
 
+        // The nearest event still ahead. Bare "next" stays music's.
+        if ["what's next", "whats next", "what is next", "next up",
+            "next meeting", "next event"].contains(lower) {
+            return await model.events.nextSummary()
+        }
+
         // Agenda, today or tomorrow
         let agendaish = ["agenda", "today", "tomorrow"].contains(lower)
             || lower.contains("calendar")

@@ -2,15 +2,33 @@ import EventKit
 import Foundation
 
 /// A calendar event, flattened for the glance.
-struct DayEvent: Identifiable {
+struct DayEvent: Identifiable, Equatable {
     let id: String
     let title: String
     let start: Date
+    let end: Date
     let isAllDay: Bool
+    /// A recognized video-call link found in the event, if any.
+    let joinURL: URL?
+
+    init(ek: EKEvent) {
+        id = ek.eventIdentifier ?? UUID().uuidString
+        title = ek.title ?? "Untitled"
+        start = ek.startDate
+        end = ek.endDate ?? ek.startDate.addingTimeInterval(3600)
+        isAllDay = ek.isAllDay
+        joinURL = DayEvent.meetingURL(in: ek)
+    }
 
     var time: String {
         if isAllDay { return "all day" }
         return DayEvent.timeFormatter.string(from: start)
+    }
+
+    /// Minutes until start, as glance copy: "12m", then "now".
+    func countdown(from now: Date) -> String {
+        let minutes = Int((start.timeIntervalSince(now) / 60).rounded(.up))
+        return minutes <= 0 ? "now" : "\(minutes)m"
     }
 
     private static let timeFormatter: DateFormatter = {
@@ -18,6 +36,34 @@ struct DayEvent: Identifiable {
         f.timeStyle = .short
         return f
     }()
+
+    /// First link pointing at a known meeting host, searched in the
+    /// event's URL, location, then notes. NSDataDetector keeps it
+    /// deterministic and offline, same as date parsing elsewhere.
+    private static let meetingHosts = [
+        "zoom.us", "meet.google.com", "teams.microsoft.com",
+        "webex.com", "facetime.apple.com", "meet.jit.si",
+    ]
+
+    private static func meetingURL(in event: EKEvent) -> URL? {
+        var haystacks: [String] = []
+        if let url = event.url?.absoluteString { haystacks.append(url) }
+        if let location = event.location { haystacks.append(location) }
+        if let notes = event.notes { haystacks.append(notes) }
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.link.rawValue
+        ) else { return nil }
+        for text in haystacks {
+            let range = NSRange(text.startIndex..., in: text)
+            for match in detector.matches(in: text, options: [], range: range) {
+                guard let url = match.url, let host = url.host else { continue }
+                if meetingHosts.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) {
+                    return url
+                }
+            }
+        }
+        return nil
+    }
 }
 
 /// An open reminder, flattened for the glance.
@@ -36,6 +82,14 @@ final class EventKitService: ObservableObject {
     /// Live data for the Today glance. Empty until `refresh()` runs.
     @Published private(set) var events: [DayEvent] = []
     @Published private(set) var reminders: [OpenReminder] = []
+
+    /// The event about to start (within half an hour, until shortly
+    /// after it begins), for the collapsed glance. Only set while the
+    /// Calendar block is on and access is already granted; the glance
+    /// itself never triggers a permission prompt.
+    @Published private(set) var nextEvent: DayEvent?
+
+    private var glanceTimer: Timer?
 
     /// Access was asked for and refused; the glance says so instead
     /// of showing an empty day.
@@ -79,14 +133,56 @@ final class EventKitService: ObservableObject {
         let predicate = store.predicateForEvents(withStart: start, end: end, calendars: nil)
         events = store.events(matching: predicate)
             .sorted { $0.startDate < $1.startDate }
-            .map {
-                DayEvent(
-                    id: $0.eventIdentifier ?? UUID().uuidString,
-                    title: $0.title ?? "Untitled",
-                    start: $0.startDate,
-                    isAllDay: $0.isAllDay
-                )
-            }
+            .map { DayEvent(ek: $0) }
+        recomputeNext()
+    }
+
+    // MARK: - Upcoming-event glance
+
+    /// Keep `nextEvent` current: a slow timer for the passage of time,
+    /// plus the store's change notification for edits made elsewhere.
+    func startGlanceTicker() {
+        recomputeNext()
+        let timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.recomputeNext() }
+        }
+        timer.tolerance = 5
+        glanceTimer = timer
+        NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged, object: store, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.recomputeNext() }
+        }
+    }
+
+    private func recomputeNext() {
+        // Status is read without asking: the collapsed island must never
+        // be the thing that pops a permission dialog.
+        guard UserDefaults.standard.bool(forKey: "showCalendar"),
+              EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            if nextEvent != nil { nextEvent = nil }
+            return
+        }
+        let now = Date()
+        let calendar = Calendar.current
+        guard let dayEnd = calendar.date(
+            byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
+        ) else { return }
+        // Two minutes of grace after start, so "now" lingers a beat
+        // instead of vanishing the second the meeting begins.
+        let predicate = store.predicateForEvents(
+            withStart: now.addingTimeInterval(-120), end: dayEnd, calendars: nil
+        )
+        let upcoming = store.events(matching: predicate)
+            .filter { !$0.isAllDay && $0.startDate.timeIntervalSince(now) > -120 }
+            .sorted { $0.startDate < $1.startDate }
+            .first
+        let next: DayEvent? = upcoming.flatMap { ek in
+            guard ek.startDate.timeIntervalSince(now) <= 30 * 60 else { return nil }
+            return DayEvent(ek: ek)
+        }
+        // Publish only real changes; every set re-renders the island.
+        if next != nextEvent { nextEvent = next }
     }
 
     private func reloadReminders() async {
@@ -220,6 +316,39 @@ final class EventKitService: ObservableObject {
         return events
             .map { "\(timeFormatter.string(from: $0.startDate))  \($0.title ?? "Untitled")" }
             .joined(separator: "\n")
+    }
+
+    /// Spoken answer for "what's next": the nearest event still ahead
+    /// of you today, whether or not it is close enough for the glance.
+    func nextSummary() async -> String {
+        guard await ensureEvents() else {
+            return "Calendar access is off. System Settings, Privacy, Calendars."
+        }
+        let now = Date()
+        let calendar = Calendar.current
+        guard let dayEnd = calendar.date(
+            byAdding: .day, value: 1, to: calendar.startOfDay(for: now)
+        ) else { return "Nothing else today. Clear water." }
+        let predicate = store.predicateForEvents(
+            withStart: now.addingTimeInterval(-120), end: dayEnd, calendars: nil
+        )
+        guard let ek = store.events(matching: predicate)
+            .filter({ !$0.isAllDay && $0.startDate.timeIntervalSince(now) > -120 })
+            .sorted(by: { $0.startDate < $1.startDate })
+            .first
+        else { return "Nothing else today. Clear water." }
+        let event = DayEvent(ek: ek)
+        let minutes = Int((event.start.timeIntervalSince(now) / 60).rounded(.up))
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h:mm a"
+        let clock = timeFormatter.string(from: event.start)
+        if minutes <= 0 {
+            return "\(event.title), on now."
+        }
+        if minutes < 60 {
+            return "\(event.title) in \(minutes) minute\(minutes == 1 ? "" : "s"), at \(clock)."
+        }
+        return "\(event.title) at \(clock)."
     }
 
     /// Spoken list of what's open right now.

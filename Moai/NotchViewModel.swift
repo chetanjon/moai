@@ -108,6 +108,7 @@ final class NotchViewModel: ObservableObject {
         music.start()
         clipboard.start()
         stats.start()
+        events.startGlanceTicker()
         // Theme.Feel reads the system Reduce Motion flag at render
         // time; nudge the tree when it flips so the change is live.
         NSWorkspace.shared.notificationCenter.addObserver(

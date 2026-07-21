@@ -10,6 +10,7 @@ struct NotchRootView: View {
     @ObservedObject var ambience: AmbienceController
     @ObservedObject var stats: SystemStatsController
     @ObservedObject var focusStats: FocusStatsStore
+    @ObservedObject var events: EventKitService
     @State private var pressStarted: Date?
 
     // Declared so the view re-renders (and re-reads Theme.Motion) the
@@ -22,6 +23,7 @@ struct NotchRootView: View {
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
     @AppStorage("glanceSession") private var glanceSession = true
+    @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     @AppStorage("glanceIdle") private var glanceIdle = "clock"
 
     /// This view injects the accent into the environment for everything
@@ -40,6 +42,12 @@ struct NotchRootView: View {
         self.ambience = model.ambience
         self.stats = model.stats
         self.focusStats = model.focusStats
+        self.events = model.events
+    }
+
+    /// The event about to start, if the user lets the glance carry it.
+    private var upcomingEvent: DayEvent? {
+        glanceNextEvent ? events.nextEvent : nil
     }
 
     private var hasLeftWing: Bool {
@@ -59,6 +67,7 @@ struct NotchRootView: View {
     /// Width the right-of-camera glance needs on notched displays.
     private var notchSideNeed: CGFloat {
         if (focus.isActive || timer.isActive), glanceSession { return 92 }
+        if upcomingEvent != nil { return 112 }
         if music.nowPlaying?.isPlaying == true, glanceMusic { return 107 }
         switch glanceIdle {
         case "none": return 0
@@ -322,6 +331,10 @@ struct NotchRootView: View {
     private var middleContent: some View {
         if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
+        } else if let next = upcomingEvent {
+            // A meeting about to start outranks the song: missing it
+            // costs more than not knowing the track name.
+            upcomingGlance(next)
         } else if let playing = music.nowPlaying, playing.isPlaying, glanceMusic {
             // Just the song name: the two-part line read as clutter
             // in this little window.
@@ -338,6 +351,8 @@ struct NotchRootView: View {
     private var notchSideContent: some View {
         if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
+        } else if let next = upcomingEvent {
+            upcomingGlance(next, width: 100)
         } else if let playing = music.nowPlaying, playing.isPlaying, glanceMusic {
             MarqueeText(title: playing.track)
                 .id(playing.track)
@@ -345,6 +360,25 @@ struct NotchRootView: View {
         } else {
             idleGlance
         }
+    }
+
+    /// The event about to start: an accent dot (the calendar's mark in
+    /// the Today pane too), the title, and a minute countdown that
+    /// turns into "now" as it begins.
+    private func upcomingGlance(_ event: DayEvent, width: CGFloat? = nil) -> some View {
+        HStack(spacing: Theme.Space.snug) {
+            Circle()
+                .fill(accent)
+                .frame(width: 4.5, height: 4.5)
+            TimelineView(.everyMinute) { context in
+                MarqueeText(
+                    title: event.title,
+                    subtitle: event.countdown(from: context.date)
+                )
+            }
+            .frame(width: width)
+        }
+        .id(event.id)
     }
 
     /// Nothing playing, nothing running: whatever quiet thing the

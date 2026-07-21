@@ -31,6 +31,7 @@ struct SettingsPane: View {
     @AppStorage("accentMode") private var accentMode = "album"
     @AppStorage("glanceMusic") private var glanceMusic = true
     @AppStorage("glanceSession") private var glanceSession = true
+    @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     @AppStorage("glanceIdle") private var glanceIdle = "clock"
 
     @Environment(\.moaiAccent) private var accent
@@ -90,6 +91,13 @@ struct SettingsPane: View {
                     toggleRow("Song name while playing", $glanceMusic)
                     divider
                     toggleRow("Session phase", $glanceSession)
+                    divider
+                    toggleRow("Event coming up", $glanceNextEvent)
+                    if !showCalendar {
+                        Text("Needs the Calendar today block on.")
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textHint)
+                    }
                     divider
                     row("When idle") {
                         picker($glanceIdle, [

@@ -171,6 +171,36 @@ struct ExpandedView: View {
     }
 }
 
+/// A recognized call link on a calendar row: one tap and you're in the
+/// room, no hunting through the invite.
+private struct JoinChip: View {
+    let url: URL
+    @Environment(\.moaiAccent) private var accent
+    @State private var hovered = false
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(url)
+        } label: {
+            HStack(spacing: Theme.Space.snug) {
+                Image(systemName: "video.fill")
+                    .font(Theme.Fonts.icon(.xs))
+                Text("Join")
+                    .font(Theme.Fonts.caption)
+            }
+            .foregroundStyle(hovered ? Theme.textPrimary : Theme.textSecondary)
+            .padding(.horizontal, Theme.Space.s)
+            .frame(minHeight: 22)
+            .background(Capsule().fill(accent.opacity(hovered ? 0.26 : 0.14)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
+        .help("Join the call")
+        .onHover { hovered = $0 }
+        .animation(Theme.Motion.hover, value: hovered)
+    }
+}
+
 /// Nothing playing: one quiet chip that opens your player, so music
 /// is a click away instead of a dock hunt.
 private struct MusicLaunchChip: View {
@@ -256,7 +286,9 @@ struct TodayView: View {
                     .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.textHint)
             } else {
+                let now = Date()
                 ForEach(events.events) { event in
+                    let past = !event.isAllDay && event.end < now
                     HStack(spacing: Theme.Space.m) {
                         Text(event.time)
                             .font(Theme.Fonts.captionMono)
@@ -267,7 +299,20 @@ struct TodayView: View {
                             .font(Theme.Fonts.body)
                             .foregroundStyle(Theme.textPrimary)
                             .lineLimit(1)
+                        // The one about to start carries its countdown.
+                        if event.id == events.nextEvent?.id {
+                            let closing = event.countdown(from: now)
+                            Text(closing == "now" ? "now" : "in \(closing)")
+                                .font(Theme.Fonts.captionMono)
+                                .foregroundStyle(accent)
+                        }
+                        Spacer(minLength: 0)
+                        if let url = event.joinURL, !past {
+                            JoinChip(url: url)
+                        }
                     }
+                    // The day so far settles back; what's ahead stays lit.
+                    .opacity(past ? 0.45 : 1)
                 }
             }
         }

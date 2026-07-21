@@ -130,13 +130,16 @@ final class NotchWindowController {
         UserDefaults.standard.object(forKey: "openDelay") as? Double ?? 0.12
     }
 
-    func show() {
-        // Prefer the built-in display with a notch. Fall back to main.
-        let screen = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 })
-            ?? NSScreen.main
-        guard let screen else { return }
+    /// The panel is a fixed transparent region at the top of the screen.
+    /// The island animates inside it, so the window never resizes. Its
+    /// height must clear the tallest island (Full + a session strip +
+    /// the Settings pane measures ~640pt); clear areas hit-test through,
+    /// so the extra room costs nothing.
+    private let panelSize = CGSize(width: 820, height: 720)
 
-        // Measure the physical notch; notch-less displays keep the default pill.
+    /// Measure the target screen and compute the panel frame; shared
+    /// by first show and every display change after it.
+    private func placement(on screen: NSScreen) -> NSRect {
         viewModel.hasPhysicalNotch = screen.safeAreaInsets.top > 0
         var notchSize = NotchViewModel.defaultNotchSize
         if screen.safeAreaInsets.top > 0,
@@ -148,19 +151,18 @@ final class NotchWindowController {
             )
         }
         viewModel.notchSize = notchSize
-
-        // The panel is a fixed transparent region at the top of the screen.
-        // The island animates inside it, so the window never resizes. Its
-        // height must clear the tallest island (Full + a session strip +
-        // the Settings pane measures ~640pt); clear areas hit-test through,
-        // so the extra room costs nothing.
-        let panelSize = CGSize(width: 820, height: 720)
-        let frame = NSRect(
+        return NSRect(
             x: screen.frame.midX - panelSize.width / 2,
             y: screen.frame.maxY - panelSize.height,
             width: panelSize.width,
             height: panelSize.height
         )
+    }
+
+    func show() {
+        // Prefer the built-in display with a notch. Fall back to main.
+        guard let screen = notchScreen else { return }
+        let frame = placement(on: screen)
 
         let panel = NotchPanel(
             contentRect: frame,
@@ -273,6 +275,27 @@ final class NotchWindowController {
         stateSub = viewModel.$state.sink { [weak self] newState in
             Task { @MainActor in self?.stateChanged(newState) }
         }
+
+        // Displays come and go; the island follows. Without this the
+        // panel stayed on a screen layout that no longer existed.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.reposition() }
+        }
+    }
+
+    /// Re-measure and re-place after a display change: a notch
+    /// arriving or leaving changes the pill itself, not just where
+    /// the panel sits.
+    private func reposition() {
+        guard let panel, let screen = notchScreen else { return }
+        let frame = placement(on: screen)
+        guard panel.frame != frame else { return }
+        panel.setFrame(frame, display: true)
+        viewModel.objectWillChange.send()
     }
 
     /// Resolved fresh every time: AppKit recreates NSScreen objects at

@@ -220,6 +220,21 @@ final class ActionEngine {
             return "Trash emptied."
         }
 
+        // Window snapping: the frontmost app answers. With the summon
+        // key this is a window manager with no chrome at all.
+        if ["left", "left half", "snap left", "window left"].contains(lower) {
+            return WindowSnapper.snap(.left)
+        }
+        if ["right", "right half", "snap right", "window right"].contains(lower) {
+            return WindowSnapper.snap(.right)
+        }
+        if ["maximize", "fill", "full screen", "fullscreen", "fill screen"].contains(lower) {
+            return WindowSnapper.snap(.full)
+        }
+        if ["center", "center window", "middle"].contains(lower) {
+            return WindowSnapper.snap(.center)
+        }
+
         // Focus sessions
         if lower.contains("pomodoro") || lower.hasPrefix("focus") {
             let minutes = Self.firstNumber(in: lower) ?? 25

@@ -126,8 +126,29 @@ final class NotchViewModel: ObservableObject {
         ) { [weak self] note in
             guard let text = note.object as? String else { return }
             Task { @MainActor in
-                self?.expand()
-                self?.submit(text)
+                guard let self else { return }
+                // "debug drop /path" exercises the drop pipeline,
+                // which no synthetic drag can reach; "debug droptext"
+                // does the same for text, "debug pin" pins the newest
+                // clip. Buttons can't be clicked synthetically either.
+                if text.hasPrefix("debug drop ") {
+                    let path = String(text.dropFirst("debug drop ".count))
+                        .trimmingCharacters(in: .whitespaces)
+                    self.receiveDrop([.file(URL(fileURLWithPath: path))])
+                    return
+                }
+                if text.hasPrefix("debug droptext ") {
+                    self.receiveDrop([.text(String(text.dropFirst("debug droptext ".count)))])
+                    return
+                }
+                if text == "debug pin" {
+                    if let newest = self.clipboard.clips.first(where: { !$0.pinned }) {
+                        self.clipboard.togglePin(newest)
+                    }
+                    return
+                }
+                self.expand()
+                self.submit(text)
             }
         }
         #endif

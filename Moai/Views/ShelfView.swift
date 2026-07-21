@@ -33,14 +33,15 @@ private struct ShelfRow: View {
     let shelf: ShelfStore
 
     @Environment(\.moaiAccent) private var accent
+    @Environment(\.displayScale) private var displayScale
     @State private var hovered = false
+    /// The file's Quick Look preview; the Finder icon holds the seat
+    /// until it arrives.
+    @State private var thumb: NSImage?
 
     var body: some View {
-        let extractedText = shelf.extractText(item)
-        return HStack(spacing: Theme.Space.m) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
-                .resizable()
-                .frame(width: 16, height: 16)
+        HStack(spacing: Theme.Space.m) {
+            preview
 
             Text(item.name)
                 .font(Theme.Fonts.body)
@@ -52,9 +53,10 @@ private struct ShelfRow: View {
                 IconActionButton(symbol: "square.and.arrow.up") {
                     shelf.airDrop(item)
                 }
-                if let extractedText {
+                if shelf.canExtractText(item) {
                     IconActionButton(symbol: "sparkles", tint: accent) {
-                        model.askAbout(name: item.name, text: extractedText)
+                        guard let text = shelf.extractText(item) else { return }
+                        model.askAbout(name: item.name, text: text)
                     }
                 }
                 IconActionButton(symbol: "xmark", dim: true) {
@@ -66,11 +68,45 @@ private struct ShelfRow: View {
         .rowInsets()
         .moaiCard(radius: Theme.Radius.row)
         .hoverHighlight(radius: Theme.Radius.row)
+        .contentShape(Rectangle())
+        // A tap opens the file where it belongs; the buttons keep
+        // their own clicks.
+        .onTapGesture {
+            NSWorkspace.shared.open(item.url)
+        }
+        .help("Open \(item.name)")
         .onHover { hovered = $0 }
         .animation(Theme.Motion.hover, value: hovered)
         // Drag the file back out to Finder or any app
         .onDrag {
             NSItemProvider(object: item.url as NSURL)
+        }
+        .task(id: item.url) {
+            thumb = await ShelfStore.thumbnail(
+                for: item.url,
+                size: CGSize(width: 46, height: 32),
+                scale: displayScale
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var preview: some View {
+        if let thumb {
+            Image(nsImage: thumb)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 46, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.thumb, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.thumb, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                )
+        } else {
+            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 46, height: 32)
         }
     }
 }

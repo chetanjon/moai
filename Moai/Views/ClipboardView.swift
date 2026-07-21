@@ -51,6 +51,14 @@ private struct ClipRow: View {
             }
 
             Group {
+                // Keepers: a pinned clip floats up, never ages out,
+                // and survives a relaunch.
+                IconActionButton(
+                    symbol: clip.pinned ? "pin.fill" : "pin",
+                    tint: clip.pinned ? accent : Theme.textSecondary
+                ) {
+                    clipboard.togglePin(clip)
+                }
                 IconActionButton(symbol: "doc.on.doc") {
                     clipboard.copyBack(clip)
                 }
@@ -64,7 +72,7 @@ private struct ClipRow: View {
                     clipboard.remove(clip)
                 }
             }
-            .opacity(hovered ? 1 : 0.6)
+            .opacity(hovered ? 1 : clip.pinned ? 0.8 : 0.6)
         }
         .rowInsets()
         .moaiCard(radius: Theme.Radius.row)
@@ -75,7 +83,7 @@ private struct ClipRow: View {
 
     @ViewBuilder
     private var thumbnail: some View {
-        if let url = clip.imageURL, let image = NSImage(contentsOf: url) {
+        if let url = clip.imageURL, let image = ClipboardStore.thumbnail(for: url) {
             Image(nsImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fill)

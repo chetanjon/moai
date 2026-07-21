@@ -1,5 +1,7 @@
 import AppKit
 import PDFKit
+import QuickLookThumbnailing
+import UniformTypeIdentifiers
 
 @MainActor
 final class ShelfStore: ObservableObject {
@@ -90,8 +92,20 @@ final class ShelfStore: ObservableObject {
             .perform(withItems: [item.url])
     }
 
+    /// Cheap check for the sparkles affordance. The old path ran the
+    /// full extraction (whole file read, PDF parse) for every row on
+    /// every render; this reads nothing but the file extension.
+    func canExtractText(_ item: Item) -> Bool {
+        let ext = item.url.pathExtension.lowercased()
+        if ext == "pdf" { return true }
+        guard let type = UTType(filenameExtension: ext) else { return false }
+        return type.conforms(to: .text) || type.conforms(to: .sourceCode)
+            || type.conforms(to: .json) || type.conforms(to: .propertyList)
+    }
+
     /// Best-effort text extraction so Moai can answer questions
-    /// about a stashed file. PDFs and any UTF-8 text for v1.
+    /// about a stashed file. PDFs and any UTF-8 text for v1. Runs
+    /// only when the user actually asks, never during render.
     func extractText(_ item: Item, limit: Int = 8000) -> String? {
         let url = item.url
         if url.pathExtension.lowercased() == "pdf" {
@@ -104,5 +118,25 @@ final class ShelfStore: ObservableObject {
             return String(text.prefix(limit))
         }
         return nil
+    }
+
+    // MARK: - Thumbnails
+
+    private static let thumbCache = NSCache<NSURL, NSImage>()
+
+    /// A real Quick Look preview of the file, generated once and kept
+    /// warm; nil until it lands (rows show the Finder icon meanwhile).
+    static func thumbnail(for url: URL, size: CGSize, scale: CGFloat) async -> NSImage? {
+        if let cached = thumbCache.object(forKey: url as NSURL) {
+            return cached
+        }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url, size: size, scale: scale, representationTypes: .thumbnail
+        )
+        guard let rep = try? await QLThumbnailGenerator.shared
+            .generateBestRepresentation(for: request) else { return nil }
+        let image = rep.nsImage
+        thumbCache.setObject(image, forKey: url as NSURL)
+        return image
     }
 }

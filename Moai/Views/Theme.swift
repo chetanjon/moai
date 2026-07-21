@@ -158,8 +158,9 @@ enum Theme {
     enum Panel {
         /// Shortcuts, clipboard, and shelf lists.
         static let list: CGFloat = 230
-        /// Focus pane, sized to fit presets plus the week of stats.
-        static let focus: CGFloat = 248
+        /// Focus pane, sized to fit presets, the daily goal row, and
+        /// the week of stats.
+        static let focus: CGFloat = 280
         static let settings: CGFloat = 300
     }
 

@@ -41,12 +41,50 @@ struct FocusPanel: View {
                 }
             }
             .padding(.top, Theme.Space.xs)
+            goalRow
             if !stats.days.isEmpty {
                 statsBlock
                     .padding(.top, Theme.Space.s)
             }
             Spacer(minLength: 0)
         }
+    }
+
+    /// The practice, not just the timer: pick how much of the day
+    /// belongs to focus and the stats measure against it.
+    private var goalRow: some View {
+        HStack(spacing: Theme.Space.m) {
+            Text("Daily goal")
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textTertiary)
+            ForEach([0, 60, 120, 240], id: \.self) { minutes in
+                goalChip(minutes)
+            }
+        }
+    }
+
+    private func goalChip(_ minutes: Int) -> some View {
+        let selected = stats.goalMinutes == minutes
+        return Button {
+            stats.goalMinutes = minutes
+        } label: {
+            Text(minutes == 0 ? "off" : FocusStatsStore.clock(minutes))
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(selected ? Theme.textPrimary : Theme.textSecondary)
+                .padding(.horizontal, Theme.Space.m)
+                .frame(minHeight: 22)
+                .background(
+                    Capsule().fill(selected ? accent.opacity(0.22) : Theme.surface)
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        selected ? accent.opacity(0.5) : Theme.hairlineFaint,
+                        lineWidth: 1
+                    )
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle())
     }
 
     // MARK: Quiet analytics: a week of bars, the numbers that matter
@@ -72,10 +110,22 @@ struct FocusPanel: View {
             }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 3) {
-                if stats.todayMinutes > 0 {
-                    Text("\(FocusStatsStore.clock(stats.todayMinutes)) today")
+                if stats.todayMinutes > 0 || stats.goalMinutes > 0 {
+                    Text(todayLine)
                         .font(Theme.Fonts.captionMono)
-                        .foregroundStyle(Theme.textSecondary)
+                        .foregroundStyle(stats.goalMet ? accent : Theme.textSecondary)
+                }
+                if let progress = stats.goalProgress {
+                    // A quiet meter under the number; full runs accent.
+                    Capsule()
+                        .fill(Color.white.opacity(0.10))
+                        .frame(width: 76, height: 3)
+                        .overlay(alignment: .leading) {
+                            Capsule()
+                                .fill(accent)
+                                .frame(width: max(3, 76 * progress))
+                        }
+                        .padding(.vertical, 2)
                 }
                 Text("\(FocusStatsStore.clock(stats.weekMinutes)) this week")
                     .font(Theme.Fonts.microMono)
@@ -92,6 +142,17 @@ struct FocusPanel: View {
                 }
             }
         }
+    }
+
+    /// "1h 20m today", or measured against the goal when one is set.
+    private var todayLine: String {
+        guard stats.goalMinutes > 0 else {
+            return "\(FocusStatsStore.clock(stats.todayMinutes)) today"
+        }
+        if stats.goalMet {
+            return "\(FocusStatsStore.clock(stats.todayMinutes)) · goal met"
+        }
+        return "\(FocusStatsStore.clock(stats.todayMinutes)) of \(FocusStatsStore.clock(stats.goalMinutes))"
     }
 
     /// Bars scale to the week's best day; a worked day never drops

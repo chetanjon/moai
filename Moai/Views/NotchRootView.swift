@@ -66,6 +66,7 @@ struct NotchRootView: View {
 
     /// Width the right-of-camera glance needs on notched displays.
     private var notchSideNeed: CGFloat {
+        if model.glanceToast != nil { return 124 }
         if (focus.isActive || timer.isActive), glanceSession { return 92 }
         if upcomingEvent != nil { return 112 }
         if music.nowPlaying?.isPlaying == true, glanceMusic { return 107 }
@@ -329,7 +330,11 @@ struct NotchRootView: View {
 
     @ViewBuilder
     private var middleContent: some View {
-        if (focus.isActive || timer.isActive), glanceSession {
+        // The landing moment outranks everything: it is six seconds
+        // long and often arrives just as a break begins.
+        if let toast = model.glanceToast {
+            toastGlance(toast)
+        } else if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
         } else if let next = upcomingEvent {
             // A meeting about to start outranks the song: missing it
@@ -349,7 +354,9 @@ struct NotchRootView: View {
     /// the middle belongs to hardware and only the wings are usable.
     @ViewBuilder
     private var notchSideContent: some View {
-        if (focus.isActive || timer.isActive), glanceSession {
+        if let toast = model.glanceToast {
+            toastGlance(toast)
+        } else if (focus.isActive || timer.isActive), glanceSession {
             sessionHint
         } else if let next = upcomingEvent {
             upcomingGlance(next, width: 100)
@@ -411,8 +418,27 @@ struct NotchRootView: View {
         }
     }
 
+    /// A finished session or timer, spoken softly in the accent for a
+    /// few seconds, then gone.
+    private func toastGlance(_ text: String) -> some View {
+        Text(text)
+            .font(Theme.Fonts.captionMono)
+            .foregroundStyle(accent)
+            .lineLimit(1)
+            .transition(.opacity)
+    }
+
     private var streakLine: String {
-        let today = "\(FocusStatsStore.clock(focusStats.todayMinutes)) today"
+        // With a goal set, the empty moment measures the day against
+        // it; otherwise it just counts the day.
+        let today: String
+        if focusStats.goalMinutes > 0 {
+            today = focusStats.goalMet
+                ? "\(FocusStatsStore.clock(focusStats.todayMinutes)) · goal met"
+                : "\(FocusStatsStore.clock(focusStats.todayMinutes)) of \(FocusStatsStore.clock(focusStats.goalMinutes))"
+        } else {
+            today = "\(FocusStatsStore.clock(focusStats.todayMinutes)) today"
+        }
         guard focusStats.streak >= 2 else { return today }
         return "\(focusStats.streak)d streak · \(today)"
     }

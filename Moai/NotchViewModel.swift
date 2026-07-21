@@ -67,6 +67,21 @@ final class NotchViewModel: ObservableObject {
     /// to tell a slow answer from a dead one.
     private var lastStreamActivity = Date.distantPast
 
+    /// A short-lived line in the collapsed glance: a session landing,
+    /// a timer finishing. Clears itself.
+    @Published var glanceToast: String?
+    private var toastClearWork: DispatchWorkItem?
+
+    func flashGlance(_ text: String, seconds: TimeInterval = 6) {
+        toastClearWork?.cancel()
+        glanceToast = text
+        let work = DispatchWorkItem { [weak self] in
+            self?.glanceToast = nil
+        }
+        toastClearWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
+    }
+
     // Feature stores
     let music = MusicController()
     let clipboard = ClipboardStore()
@@ -101,10 +116,20 @@ final class NotchViewModel: ObservableObject {
         // moves into the Keychain once.
         KeychainStore.migrateFromDefaults(key: "anthropicKey", account: "anthropicKey")
         timer.onComplete = { [weak self] minutes in
-            self?.focusStats.recordSession(minutes: minutes)
+            guard let self else { return }
+            self.focusStats.recordSession(minutes: minutes)
+            self.flashGlance("timer done")
         }
         focus.onWorkPhaseComplete = { [weak self] minutes in
-            self?.focusStats.recordSession(minutes: minutes)
+            guard let self else { return }
+            let metBefore = self.focusStats.goalMet
+            self.focusStats.recordSession(minutes: minutes)
+            // The session that crosses the goal line gets the moment.
+            if self.focusStats.goalMet, !metBefore {
+                self.flashGlance("goal met · \(FocusStatsStore.clock(self.focusStats.todayMinutes))")
+            } else {
+                self.flashGlance("\(minutes) in the bank")
+            }
         }
     }
 
@@ -144,6 +169,20 @@ final class NotchViewModel: ObservableObject {
                 if text == "debug pin" {
                     if let newest = self.clipboard.clips.first(where: { !$0.pinned }) {
                         self.clipboard.togglePin(newest)
+                    }
+                    return
+                }
+                // "debug tab focus" opens a pane for screenshots;
+                // synthetic clicks never reach the switcher.
+                if text.hasPrefix("debug tab ") {
+                    let name = String(text.dropFirst("debug tab ".count))
+                    let tabs: [String: Tab] = [
+                        "today": .today, "ask": .ask, "clipboard": .clipboard,
+                        "shelf": .shelf, "go": .links, "notes": .notes, "focus": .focus,
+                    ]
+                    if let tab = tabs[name] {
+                        self.tab = tab
+                        self.expand()
                     }
                     return
                 }

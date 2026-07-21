@@ -17,14 +17,31 @@ final class FocusStatsStore: ObservableObject {
     }
 
     private let storageKey = "moai.focusStats"
+    private let goalKey = "moai.focusGoal"
     private let maxDays = 90
     private let calendar = Calendar.current
 
+    /// Daily target in minutes; 0 means no goal, just history.
+    @Published var goalMinutes: Int {
+        didSet { UserDefaults.standard.set(goalMinutes, forKey: goalKey) }
+    }
+
     init() {
+        goalMinutes = UserDefaults.standard.integer(forKey: goalKey)
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([DayTotal].self, from: data) {
             days = decoded
         }
+    }
+
+    /// 0...1 toward today's goal, nil with no goal set.
+    var goalProgress: Double? {
+        guard goalMinutes > 0 else { return nil }
+        return min(1, Double(todayMinutes) / Double(goalMinutes))
+    }
+
+    var goalMet: Bool {
+        goalMinutes > 0 && todayMinutes >= goalMinutes
     }
 
     func recordSession(minutes: Int) {

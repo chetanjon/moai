@@ -416,8 +416,38 @@ final class NotchViewModel: ObservableObject {
 
     // MARK: - Voice, hold to talk
 
+    /// The room goes quiet before the island listens: playing music
+    /// pauses and ambience ducks, restored the moment the session
+    /// ends. The mic was drowning in the user's own speakers (seen
+    /// live, bars maxed on a Tame Impala chorus).
+    private var duckedMusicForVoice = false
+    private var duckedAmbienceVolume: Double?
+
+    private func quietTheRoom() {
+        if music.nowPlaying?.isPlaying == true {
+            duckedMusicForVoice = true
+            music.pause()
+        }
+        if ambience.active != nil {
+            duckedAmbienceVolume = ambience.volume
+            ambience.volume = 0
+        }
+    }
+
+    private func restoreTheRoom() {
+        if duckedMusicForVoice {
+            duckedMusicForVoice = false
+            music.play()
+        }
+        if let restored = duckedAmbienceVolume {
+            duckedAmbienceVolume = nil
+            ambience.volume = restored
+        }
+    }
+
     func beginListening() {
         guard state == .collapsed else { return }
+        quietTheRoom()
         state = .listening
         voice.begin()
     }
@@ -427,6 +457,7 @@ final class NotchViewModel: ObservableObject {
         if state == .listening {
             endListening()
         } else {
+            quietTheRoom()
             state = .listening
             voice.begin()
         }
@@ -444,6 +475,7 @@ final class NotchViewModel: ObservableObject {
         voice.end { [weak self] text in
             guard let self else { return }
             self.isWorking = false
+            self.restoreTheRoom()
             let spoken = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if spoken.isEmpty {
                 self.lastHeard = nil
@@ -523,6 +555,7 @@ final class NotchViewModel: ObservableObject {
         guard state == .listening else { return }
         voice.cancel()
         state = .collapsed
+        restoreTheRoom()
     }
 
     /// Content dropped on the island, delivered from the panel's AppKit

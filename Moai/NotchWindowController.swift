@@ -107,6 +107,10 @@ final class NotchWindowController {
     private var napActivity: NSObjectProtocol?
     private var summon: HotkeySummon?
     private var pointerInside = false
+    /// Drag-in-flight sensing: the drag pasteboard's changeCount moves
+    /// when a session begins anywhere in the system.
+    private let dragPasteboard = NSPasteboard(name: .drag)
+    private var dragBaseline = 0
     /// Pending open-intent check; the pointer must linger in the zone,
     /// not just cross it.
     private var openIntentWork: DispatchWorkItem?
@@ -263,11 +267,18 @@ final class NotchWindowController {
             reason: "Notch hover tracking"
         )
         let timer = Timer(timeInterval: 1.0 / 20.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.pointerMoved() }
+            // Inline, never via the main queue: during a drag session
+            // only the tracking run-loop mode runs and main-queue
+            // tasks stall, but this poll is exactly what senses the
+            // drag. The timer always fires on the main thread.
+            MainActor.assumeIsolated {
+                self?.pointerMoved()
+            }
         }
         // Common modes so menu/event tracking doesn't pause the poll.
         RunLoop.main.add(timer, forMode: .common)
         hoverTimer = timer
+        dragBaseline = dragPasteboard.changeCount
 
         // Whenever the island changes state, for any reason, hover or
         // not, re-sync hover bookkeeping so a stale flag can never
@@ -307,6 +318,7 @@ final class NotchWindowController {
     private func pointerMoved() {
         guard let screen = notchScreen else { return }
         let location = NSEvent.mouseLocation
+        senseDrag(at: location, on: screen)
         switch viewModel.state {
         case .collapsed:
             publishPointerUnit(location, zone: collapsedZone(on: screen))
@@ -349,6 +361,46 @@ final class NotchWindowController {
         case .listening:
             // Voice sessions are press-driven; hover keeps its hands off.
             break
+        }
+    }
+
+    /// A drag rising toward the top-center opens the island early, so
+    /// the release lands on the tall card mid-screen and never visits
+    /// the top edge, whose Mission Control reveal cannot be disabled
+    /// for file drags on this macOS.
+    private func senseDrag(at location: NSPoint, on screen: NSScreen) {
+        let buttonDown = NSEvent.pressedMouseButtons & 1 != 0
+        guard buttonDown else {
+            dragBaseline = dragPasteboard.changeCount
+            if viewModel.dragApproaching {
+                endDragApproach()
+            }
+            return
+        }
+        guard dragPasteboard.changeCount != dragBaseline else { return }
+        let zone = NSRect(
+            x: screen.frame.midX - 430,
+            y: screen.frame.maxY - screen.frame.height * 0.45,
+            width: 860,
+            height: screen.frame.height * 0.45
+        )
+        if zone.contains(location) {
+            if viewModel.state == .collapsed {
+                viewModel.dragExpanded = true
+                viewModel.dragApproaching = true
+                viewModel.expand(takeKey: false)
+            }
+        } else if viewModel.dragApproaching, !viewModel.isDropTargeted {
+            endDragApproach()
+        }
+    }
+
+    /// The drag left without dropping: put everything back.
+    private func endDragApproach() {
+        viewModel.dragApproaching = false
+        if viewModel.dragExpanded, !viewModel.isDropTargeted {
+            viewModel.dragExpanded = false
+            viewModel.collapse()
         }
     }
 

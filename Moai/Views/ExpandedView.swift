@@ -78,7 +78,7 @@ struct ExpandedView: View {
             // While a drag hovers, the body reaches further down the
             // screen, so the release happens nowhere near the top
             // edge and its Mission Control hot zone.
-            if model.isDropTargeted {
+            if model.isDropTargeted || model.dragApproaching {
                 Color.clear.frame(height: 150)
             }
         }
@@ -104,12 +104,13 @@ struct ExpandedView: View {
         // unmistakable target, so drops aim here, well below the
         // browser's tab strip, instead of at the little pill.
         .overlay {
-            if model.isDropTargeted {
+            if model.isDropTargeted || model.dragApproaching {
                 dropTarget
                     .transition(.opacity)
             }
         }
         .animation(Theme.Motion.hover, value: model.isDropTargeted)
+        .animation(Theme.Motion.hover, value: model.dragApproaching)
         .animation(Theme.Motion.content, value: model.tab)
         .animation(Theme.Motion.content, value: model.pane)
         .animation(Theme.Motion.content, value: music.nowPlaying != nil)

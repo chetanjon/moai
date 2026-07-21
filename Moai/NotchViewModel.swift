@@ -38,6 +38,10 @@ final class NotchViewModel: ObservableObject {
     /// A drag is hovering the island: light the accent edge.
     @Published var isDropTargeted = false
 
+    /// A drag is in flight nearby (sensed by the poll, before AppKit
+    /// delivers it): the island opens with the drop card waiting.
+    @Published var dragApproaching = false
+
     /// The island opened itself for an incoming drag; if the drag
     /// leaves without dropping it closes again.
     var dragExpanded = false
@@ -238,6 +242,7 @@ final class NotchViewModel: ObservableObject {
     func collapse() {
         guard state == .expanded else { return }
         state = .collapsed
+        dragApproaching = false
         // The island always reopens small and clean.
         pane = .none
         tab = .today
@@ -344,6 +349,7 @@ final class NotchViewModel: ObservableObject {
         // The hosting view already refuses drags mid-voice; belt and braces.
         guard state != .listening else { return }
         dragExpanded = false
+        dragApproaching = false
         var landedShelf = false
         var landedClip = false
         for item in items {

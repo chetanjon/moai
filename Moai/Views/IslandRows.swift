@@ -184,8 +184,13 @@ struct MusicRow: View {
         )
     }
 
+    /// Hours appear only when needed: videos and live streams run
+    /// long, songs stay "3:41".
     private static func clock(_ seconds: Double) -> String {
         let total = max(0, Int(seconds))
+        if total >= 3600 {
+            return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+        }
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 }

@@ -277,14 +277,19 @@ final class MusicController: ObservableObject {
 
     // MARK: - Bridge updates (the truth when the adapter works)
 
+    /// Trace of the last applyBridge decision, for `debug music`.
+    private(set) var bridgeTrace = "never"
+
     private func applyBridge(_ state: MediaRemoteBridge.State?) {
-        guard bridge.adapterAvailable else { return }
-        guard Date() >= suppressPollUntil else { return }
+        guard bridge.adapterAvailable else { bridgeTrace = "gate:adapter"; return }
+        guard Date() >= suppressPollUntil else { bridgeTrace = "gate:suppress"; return }
         guard let state else {
+            bridgeTrace = "cleared"
             clearNowPlaying()
             return
         }
-        let source = resolveSource(state.bundleIdentifier)
+        bridgeTrace = "applied:\(state.bundleIdentifier)"
+        let source = resolveSource(state.bundleIdentifier, parent: state.parentBundleIdentifier)
         let sameSource = nowPlaying?.source == source
         let fresh = NowPlaying(
             source: source,
@@ -307,18 +312,28 @@ final class MusicController: ObservableObject {
         applyBridgeArtwork(state)
     }
 
-    private func resolveSource(_ bundleID: String) -> Source {
-        switch bundleID {
-        case MusicApp.spotify.bundleID: return .spotify
-        case MusicApp.appleMusic.bundleID: return .appleMusic
-        default:
-            let name = NSRunningApplication
-                .runningApplications(withBundleIdentifier: bundleID)
-                .first?.localizedName
-                ?? bundleID.split(separator: ".").last.map(String.init)?.capitalized
-                ?? "Media"
-            return .system(bundleID: bundleID, name: name)
+    /// Safari media arrives under its GPU helper's identifier with the
+    /// real app in `parent`, so both are candidates. A user-facing app
+    /// wins over a faceless helper ("Safari", never "Safari Graphics
+    /// and Media"), and the winner is also what a tap opens.
+    private func resolveSource(_ bundleID: String, parent: String?) -> Source {
+        let candidates = [bundleID, parent].compactMap { $0 }
+        for candidate in candidates {
+            if candidate == MusicApp.spotify.bundleID { return .spotify }
+            if candidate == MusicApp.appleMusic.bundleID { return .appleMusic }
         }
+        let running = candidates.compactMap { candidate -> (String, NSRunningApplication)? in
+            NSRunningApplication.runningApplications(withBundleIdentifier: candidate)
+                .first.map { (candidate, $0) }
+        }
+        // Safari's GPU helper is an accessory named "Safari Graphics
+        // and Media"; only a Dock-visible app outranks the raw sender.
+        let best = running.first { $0.1.activationPolicy == .regular } ?? running.first
+        if let (candidate, app) = best, let name = app.localizedName {
+            return .system(bundleID: candidate, name: name)
+        }
+        let name = bundleID.split(separator: ".").last.map(String.init)?.capitalized ?? "Media"
+        return .system(bundleID: bundleID, name: name)
     }
 
     private func seedVolume(for source: Source) -> Double {
@@ -336,11 +351,18 @@ final class MusicController: ObservableObject {
             artwork = image
             updateAccent(from: image)
         } else if let app = nowPlaying?.source.scriptable {
-            fetchScriptedArtwork(app: app, key: key)
+            fetchScriptedArtwork(app: app, key: key, title: state.title, artist: state.artist)
         } else {
             artworkKey = key
             artwork = nil
             updateAccent(from: nil)
+            bridge.fetchArtworkSnapshot { [weak self] snapshotKey, data in
+                guard let self, self.artworkKey == key, self.artwork == nil,
+                      snapshotKey == key,
+                      let data, let image = NSImage(data: data) else { return }
+                self.artwork = image
+                self.updateAccent(from: image)
+            }
         }
     }
 
@@ -459,6 +481,10 @@ final class MusicController: ObservableObject {
     }
 
     private func applyLegacy(_ output: String?, from app: MusicApp, force: Bool) {
+        // A poll that started before the bridge came up can complete
+        // after it; the bridge is the truth once available, so late
+        // AppleScript results must not stomp it.
+        guard !bridge.adapterAvailable else { return }
         guard force || Date() >= suppressPollUntil else { return }
         guard let output else {
             clearNowPlaying()
@@ -492,7 +518,7 @@ final class MusicController: ObservableObject {
             artworkKey = key
             downloadArtwork(from: url, key: key)
         } else {
-            fetchScriptedArtwork(app: app, key: key)
+            fetchScriptedArtwork(app: app, key: key, title: parts[1], artist: parts[2])
         }
     }
 
@@ -500,7 +526,7 @@ final class MusicController: ObservableObject {
 
     /// Per-app artwork fetch, used when the bridge has no art or as
     /// part of the legacy poll.
-    private func fetchScriptedArtwork(app: MusicApp, key: String) {
+    private func fetchScriptedArtwork(app: MusicApp, key: String, title: String, artist: String) {
         artworkKey = key
         switch app {
         case .spotify:
@@ -530,9 +556,42 @@ final class MusicController: ObservableObject {
                 let image = data.isEmpty ? nil : NSImage(data: data)
                 Task { @MainActor in
                     guard let self, self.artworkKey == key else { return }
-                    self.artwork = image
-                    self.updateAccent(from: image)
+                    if let image {
+                        self.artwork = image
+                        self.updateAccent(from: image)
+                    } else {
+                        // Streaming tracks expose no artwork over
+                        // AppleScript; the catalog usually has it.
+                        self.fetchCatalogArtwork(title: title, artist: artist, key: key)
+                    }
                 }
+            }
+        }
+    }
+
+    /// Last resort for Apple Music: look the track up in the public
+    /// iTunes catalog and take the album art from the match.
+    private func fetchCatalogArtwork(title: String, artist: String, key: String) {
+        let term = "\(artist) \(title)".trimmingCharacters(in: .whitespaces)
+        guard !term.isEmpty else { return }
+        var components = URLComponents(string: "https://itunes.apple.com/search")!
+        components.queryItems = [
+            URLQueryItem(name: "term", value: term),
+            URLQueryItem(name: "media", value: "music"),
+            URLQueryItem(name: "entity", value: "song"),
+            URLQueryItem(name: "limit", value: "1"),
+        ]
+        guard let url = components.url else { return }
+        Task { [weak self] in
+            guard let data = try? await URLSession.shared.data(from: url).0,
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let first = (object["results"] as? [[String: Any]])?.first,
+                  let raw = first["artworkUrl100"] as? String,
+                  let artURL = URL(string: raw.replacingOccurrences(of: "100x100", with: "600x600"))
+            else { return }
+            await MainActor.run {
+                guard let self, self.artworkKey == key, self.artwork == nil else { return }
+                self.downloadArtwork(from: artURL, key: key)
             }
         }
     }

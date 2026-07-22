@@ -11,6 +11,10 @@ import Foundation
 final class MediaRemoteBridge: ObservableObject {
     struct State: Equatable {
         var bundleIdentifier: String
+        /// Safari publishes media from its GPU helper
+        /// (com.apple.WebKit.GPU); this carries the app that actually
+        /// owns the page so the UI can name and open the right thing.
+        var parentBundleIdentifier: String?
         var title: String
         var artist: String
         var album: String
@@ -34,6 +38,8 @@ final class MediaRemoteBridge: ObservableObject {
 
     @Published private(set) var state: State?
     @Published private(set) var adapterAvailable = false
+    /// Last artwork-snapshot outcome, for `debug music`.
+    var snapshotTrace = "never"
 
     private var stream: Process?
     private var stopped = false
@@ -229,6 +235,7 @@ final class MediaRemoteBridge: ObservableObject {
             .flatMap { Data(base64Encoded: $0) }
         let fresh = State(
             bundleIdentifier: bundleID,
+            parentBundleIdentifier: merged["parentApplicationBundleIdentifier"] as? String,
             title: title,
             artist: merged["artist"] as? String ?? "",
             album: merged["album"] as? String ?? "",
@@ -243,6 +250,46 @@ final class MediaRemoteBridge: ObservableObject {
 
     private static func number(_ value: Any?) -> Double {
         (value as? NSNumber)?.doubleValue ?? 0
+    }
+
+    /// The stream's initial dump has no artwork (only change events
+    /// carry it), so a launch mid-track needs one `get` to see the
+    /// current cover. Calls back with "title|artist" and the data.
+    func fetchArtworkSnapshot(completion: @escaping @MainActor @Sendable (String, Data?) -> Void) {
+        guard adapterAvailable,
+              let script = scriptURL, let framework = frameworkURL else { return }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        process.arguments = [script.path, framework.path, "get"]
+        let out = Pipe()
+        process.standardOutput = out
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { [weak self] finished in
+            Task { @MainActor in
+                self?.oneShots.remove(finished)
+            }
+        }
+        // Drained off-pipe before termination: the payload can far
+        // exceed the 64KB pipe buffer, and a blocked writer never exits.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let data = out.fileHandleForReading.readDataToEndOfFile()
+            guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                Task { @MainActor in self?.snapshotTrace = "parse-fail:\(data.count)b" }
+                return
+            }
+            let key = (object["title"] as? String ?? "") + "|" + (object["artist"] as? String ?? "")
+            let art = (object["artworkData"] as? String).flatMap { Data(base64Encoded: $0) }
+            Task { @MainActor in
+                self?.snapshotTrace = "got:\(key):art=\(art?.count ?? 0)"
+                completion(key, art)
+            }
+        }
+        do {
+            try process.run()
+            oneShots.insert(process)
+        } catch {
+            // No snapshot, no harm; the next track change brings art.
+        }
     }
 
     // MARK: - One-shot commands

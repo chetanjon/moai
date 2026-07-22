@@ -249,6 +249,40 @@ final class NotchViewModel: ObservableObject {
                     self.answer = self.voice.diagnostics
                     return
                 }
+                // "debug music" dumps the resolved media state to
+                // `defaults read com.cj.moai musicDebug`: the one
+                // window into how a source (browser, helper process,
+                // player app) actually landed after resolution.
+                if text == "debug music" {
+                    var bits = ["adapter=\(self.music.bridge.adapterAvailable)"]
+                    if let playing = self.music.nowPlaying {
+                        bits += [
+                            "source=\(playing.source.displayName)",
+                            "track=\(playing.track)",
+                            "artist=\(playing.artist)",
+                            "playing=\(playing.isPlaying)",
+                            "duration=\(Int(playing.duration))",
+                            "position=\(Int(self.music.position()))",
+                            "volume=\(Int(playing.volume))",
+                            "shuffle=\(playing.supportsShuffle)",
+                            "artwork=\(self.music.artwork != nil)",
+                        ]
+                        if case .system(let bundleID, _) = playing.source {
+                            bits.append("bundle=\(bundleID)")
+                        }
+                    } else {
+                        bits.append("idle")
+                    }
+                    if let state = self.music.bridge.state {
+                        bits.append("bridge=\(state.bundleIdentifier)/\(state.parentBundleIdentifier ?? "-")/\(state.title)/\(state.playing)")
+                    } else {
+                        bits.append("bridge=nil")
+                    }
+                    bits.append("trace=\(self.music.bridgeTrace)")
+                    bits.append("snap=\(self.music.bridge.snapshotTrace)")
+                    UserDefaults.standard.set(bits.joined(separator: " | "), forKey: "musicDebug")
+                    return
+                }
                 // "debug listen" runs a real 4-second capture through
                 // the normal deliver path; ambient audio becomes the
                 // transcript and proves the chain on real hardware.

@@ -128,9 +128,10 @@ final class NotchWindowController {
 
     /// Pointer must stay in the open zone this long before the island
     /// opens, drive-through traffic along the top edge never triggers.
-    /// User-tunable ("openDelay" in settings).
+    /// User-tunable ("openDelay" in settings). 0.18 over the old 0.12:
+    /// the extra beat reads as intent answered, not a startle.
     private var openDwell: TimeInterval {
-        UserDefaults.standard.object(forKey: "openDelay") as? Double ?? 0.12
+        UserDefaults.standard.object(forKey: "openDelay") as? Double ?? 0.18
     }
 
     /// The panel is a fixed transparent region at the top of the screen.

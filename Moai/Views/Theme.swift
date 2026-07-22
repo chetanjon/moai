@@ -194,12 +194,15 @@ enum Theme {
     }
 
     enum Motion {
+        /// The open and close of the island itself. Slower and more
+        /// damped than the inner content on every tier: the shell
+        /// should bloom, never pop (user call, 2026-07-21).
         static var island: Animation {
             switch Feel.current {
-            case .still: return .spring(response: 0.42, dampingFraction: 1.0)
-            case .serene: return .spring(response: 0.45, dampingFraction: 0.92)
-            case .balanced: return .spring(response: 0.40, dampingFraction: 0.86)
-            case .lively: return .spring(response: 0.38, dampingFraction: 0.72)
+            case .still: return .spring(response: 0.50, dampingFraction: 1.0)
+            case .serene: return .spring(response: 0.56, dampingFraction: 0.95)
+            case .balanced: return .spring(response: 0.52, dampingFraction: 0.92)
+            case .lively: return .spring(response: 0.46, dampingFraction: 0.80)
             }
         }
 
@@ -215,9 +218,9 @@ enum Theme {
         static var content: Animation {
             switch Feel.current {
             case .still: return .smooth(duration: 0.28)
-            case .serene: return .smooth(duration: 0.32)
-            case .balanced: return .snappy(duration: 0.25)
-            case .lively: return .snappy(duration: 0.22)
+            case .serene: return .smooth(duration: 0.34)
+            case .balanced: return .smooth(duration: 0.30)
+            case .lively: return .snappy(duration: 0.24)
             }
         }
 

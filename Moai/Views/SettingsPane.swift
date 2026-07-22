@@ -130,6 +130,11 @@ struct SettingsPane: View {
                             ("⇧⌘Space", "cmdShiftSpace"), ("Off", "off"),
                         ], width: 236)
                     }
+                    if summonKey == "ctrlSpace" {
+                        Text("macOS usually keeps ⌃Space for input source switching; if nothing happens, ⌥Space is the safe pick.")
+                            .font(Theme.Fonts.caption)
+                            .foregroundStyle(Theme.textHint)
+                    }
                     divider
                     row("Microphone") {
                         Picker("", selection: $voiceInputUID) {

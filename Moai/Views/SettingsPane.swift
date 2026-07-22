@@ -44,6 +44,7 @@ struct SettingsPane: View {
     @AppStorage("collapseDelay") private var collapseDelay = 0.05
     @AppStorage("motionFeel") private var motionFeel = "serene"
     @AppStorage("islandMaterial") private var islandMaterial = "ink"
+    @AppStorage("glassClarity") private var glassClarity = "balanced"
     @AppStorage("glowOn") private var glowOn = true
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "silver"
@@ -203,6 +204,14 @@ struct SettingsPane: View {
                     Text("Glass opens the island as liquid glass. Closed, it stays ink and melts into the notch.")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
+                    if islandMaterial == "glass" {
+                        row("Clarity") {
+                            picker($glassClarity, [
+                                ("Veiled", "veiled"), ("Balanced", "balanced"),
+                                ("Clear", "clear"),
+                            ])
+                        }
+                    }
                     divider
                     toggleRow("Glow with music", $glowOn)
                 }

@@ -24,6 +24,7 @@ struct NotchRootView: View {
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
     @AppStorage("islandMaterial") private var islandMaterial = "ink"
+    @AppStorage("glassClarity") private var glassClarity = "balanced"
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     // "none" by default: an idle island earns no width, especially on
     // monitors where the pill sits over working windows (user call,
@@ -221,15 +222,24 @@ struct NotchRootView: View {
     /// old blur-and-smoke underneath older systems. The branch is
     /// fixed at launch; only opacities ever move with state (the
     /// R74 law: never swap the shell's identity mid-bloom).
+    /// How see-through the glass is, the user's own dial. Fully
+    /// untinted .clear glass let background text collide with the
+    /// island's words and read as noise (tried 2026-07-22, rejected
+    /// on sight); .regular melts the desktop into color, and the
+    /// tint sets how much of it survives.
+    private var glassTint: Double {
+        switch glassClarity {
+        case "veiled": return 0.35
+        case "clear": return 0.06
+        default: return 0.18
+        }
+    }
+
     @ViewBuilder
     private var glassFill: some View {
         if #available(macOS 26.0, *) {
-            // The clear variant, untinted: as transparent as the OS
-            // makes glass (user call, 2026-07-22, "I want that to be
-            // transparent"). The material's own refraction is all
-            // that separates island from desktop.
             Color.clear
-                .glassEffect(.clear, in: islandShape)
+                .glassEffect(.regular.tint(Color.black.opacity(glassTint)), in: islandShape)
         } else {
             ZStack {
                 VisualEffectBlur()
@@ -240,10 +250,16 @@ struct NotchRootView: View {
         }
     }
 
-    /// How much ink still lies over the open glass: none where the
-    /// real material exists, smoke where only blur does.
+    /// How much ink still lies over the open glass; scales with the
+    /// chosen clarity where the real material exists.
     private var openSmoke: Double {
-        if #available(macOS 26.0, *) { return 0 }
+        if #available(macOS 26.0, *) {
+            switch glassClarity {
+            case "veiled": return 0.12
+            case "clear": return 0
+            default: return 0.06
+            }
+        }
         return 0.30
     }
 

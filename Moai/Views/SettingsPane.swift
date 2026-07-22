@@ -170,7 +170,7 @@ struct SettingsPane: View {
                     }
                 }
                 section("Glance", reveal: 2) {
-                    toggleRow("Song name while playing", $glanceMusic)
+                    toggleRow("Clear the glance while playing", $glanceMusic)
                     divider
                     toggleRow("Event coming up", $glanceNextEvent)
                     if !showCalendar {

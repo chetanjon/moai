@@ -55,14 +55,16 @@ struct NotchRootView: View {
     }
 
     private var hasLeftWing: Bool {
-        focus.isActive || timer.isActive || music.nowPlaying?.isPlaying == true
+        focus.isActive || timer.isActive
     }
 
     /// Each wing earns exactly what its content needs: the ring and
-    /// countdown want 54, the waveform alone sits happily in 30.
+    /// countdown want 54. Music no longer rents wing space at all;
+    /// while it plays the pill is bare hardware and the breathing
+    /// accent rim carries the signal (user call, 2026-07-21, after
+    /// the waveform kept clipping against the notch shoulders).
     private var leftWingNeed: CGFloat {
         if focus.isActive || timer.isActive { return 54 }
-        if music.nowPlaying?.isPlaying == true { return 30 }
         return 0
     }
 
@@ -282,7 +284,8 @@ struct NotchRootView: View {
                     // place, nothing travels along the border.
                     .overlay {
                         if glowOn, Theme.Feel.current.ambient,
-                           model.state == .collapsed, hasLeftWing {
+                           model.state == .collapsed,
+                           hasLeftWing || music.nowPlaying?.isPlaying == true {
                             TimelineView(.animation(minimumInterval: 1 / 15)) { context in
                                 let t = context.date.timeIntervalSinceReferenceDate
                                 let breath = 0.5 + 0.5 * sin(t / (1.6 * Theme.Motion.ambientSlow))
@@ -587,9 +590,6 @@ struct NotchRootView: View {
                         .foregroundStyle(Theme.textPrimary)
                 }
                 .padding(.leading, Theme.Space.wingInset)
-            } else if music.nowPlaying?.isPlaying == true {
-                NowPlayingBars(accent: accent, barCount: 4, maxHeight: 11)
-                    .padding(.leading, Theme.Space.wingInset)
             }
             // While music plays the glance belongs to the song and its
             // wave alone; the soundscape symbol steps back.

@@ -23,6 +23,7 @@ struct NotchRootView: View {
     @AppStorage("accentMode") private var accentMode = "silver"
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
+    @AppStorage("islandMaterial") private var islandMaterial = "ink"
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     // "none" by default: an idle island earns no width, especially on
     // monitors where the pill sits over working windows (user call,
@@ -205,17 +206,30 @@ struct NotchRootView: View {
         )
     }
 
+    /// The shell's material. Ink everywhere by default (the blurred
+    /// glass read as clutter, user call 2026-07-20). Glass returned
+    /// 2026-07-21 as an opt-in, smoked and expanded-only: the closed
+    /// pill always stays ink so it melts into the hardware.
+    @ViewBuilder
+    private var islandBase: some View {
+        if islandMaterial == "glass", model.state != .collapsed {
+            ZStack {
+                VisualEffectBlur()
+                    .clipShape(islandShape)
+                islandShape
+                    .fill(Color.black.opacity(0.52))
+            }
+        } else {
+            islandShape.fill(Color.black)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 // The droplet clings to the top edge of the screen; its
-                // meniscus shoulders keep it flush with the notch. One
-                // opaque black fill in every state: the blurred glass
-                // let the desktop bleed through and read as clutter,
-                // black is the island's true material (user call,
-                // 2026-07-20).
-                islandShape
-                    .fill(Color.black)
+                // meniscus shoulders keep it flush with the notch.
+                islandBase
                     // Top-lit glass edge; brighter where light would catch it.
                     .overlay(
                         islandShape

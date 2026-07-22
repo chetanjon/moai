@@ -212,6 +212,22 @@ final class ActionEngine {
             return await model.events.addEvent(title, start: date)
         }
 
+        // "run <name>" hands the name to the user's own Shortcuts.app
+        // library; every automation they ever built becomes a verb.
+        // Launch is optimistic, a missing name speaks via the glance.
+        if lower.hasPrefix("run ") {
+            var name = String(text.dropFirst("run ".count))
+                .trimmingCharacters(in: .whitespaces)
+            for lead in ["shortcut ", "the ", "my "] where
+                name.lowercased().hasPrefix(lead) {
+                name = String(name.dropFirst(lead.count))
+                    .trimmingCharacters(in: .whitespaces)
+            }
+            guard !name.isEmpty else { return "Run which shortcut?" }
+            model.shortcuts.runAppleShortcut(name)
+            return "Running \(name)."
+        }
+
         // Shortcuts: prefix verb, so it can't be hijacked by the fuzzy
         // branches below. "open github" hits a saved shortcut by name;
         // "open stripe.com" resolves cold.

@@ -150,6 +150,8 @@ final class NotchViewModel: ObservableObject {
     /// Debug-driven request to open the shortcut add flow; the
     /// Shortcuts pane consumes and resets it.
     @Published var wantsShortcutAdd = false
+    /// Same, straight into the Shortcuts.app library picker.
+    @Published var wantsShortcutPick = false
 
     /// True on the built-in display where hardware occupies the middle
     /// of the island; external displays keep that space usable.
@@ -185,6 +187,9 @@ final class NotchViewModel: ObservableObject {
         music.start()
         clipboard.start()
         stats.start()
+        shortcuts.announce = { [weak self] message in
+            self?.flashGlance(message)
+        }
         events.startGlanceTicker()
         updates.onNewVersion = { [weak self] version in
             self?.flashGlance("\(version) is out", seconds: 8)
@@ -293,6 +298,12 @@ final class NotchViewModel: ObservableObject {
                     self.expand()
                     self.tab = .links
                     self.wantsShortcutAdd = true
+                    return
+                }
+                if text == "debug gopick" {
+                    self.expand()
+                    self.tab = .links
+                    self.wantsShortcutPick = true
                     return
                 }
                 // "debug addshortcut <text>" runs the same store path

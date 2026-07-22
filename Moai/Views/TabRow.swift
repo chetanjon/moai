@@ -67,21 +67,24 @@ private struct SwitcherItem: View {
             withAnimation(Theme.Motion.content) { model.tab = tab }
         } label: {
             HStack(spacing: Theme.Space.snug) {
+                // A size up and a tier brighter than they were: the
+                // tools read at a glance now (user call, 2026-07-22,
+                // "looks too small").
                 Image(systemName: Switcher.symbol(tab))
-                    .font(Theme.Fonts.icon(.s))
+                    .font(Theme.Fonts.icon(.m))
                 if on {
                     Text(Switcher.label(tab))
-                        .font(Theme.Fonts.label)
+                        .font(Theme.Fonts.bodyEmphasis)
                         .fixedSize()
                         .transition(.opacity)
                 }
             }
             .foregroundStyle(
                 on ? Theme.textPrimary
-                    : hovered ? Theme.textSecondary : Theme.textTertiary
+                    : hovered ? Theme.textPrimary : Theme.textSecondary
             )
             .padding(.horizontal, Theme.Space.m)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             // The active tool wears a quiet wash of the accent, the
             // island's one habit of color inside the glass.
             .background(Capsule().fill(on ? accent.opacity(0.14) : Color.clear))

@@ -118,7 +118,14 @@ final class ShortcutStore: ObservableObject {
         var link: String
         /// Set for built-in actions; `link` is empty then.
         var action: SystemAction?
+        /// Set for Shortcuts.app entries: the name the `shortcuts`
+        /// CLI knows; `link` is empty then.
+        var appleShortcut: String?
     }
+
+    /// Things worth saying out loud (async failures, mostly); the
+    /// view model points this at the glance toast.
+    var announce: ((String) -> Void)?
 
     @Published private(set) var shortcuts: [Shortcut] = [] {
         didSet { save() }
@@ -148,6 +155,61 @@ final class ShortcutStore: ObservableObject {
     func add(action: SystemAction) {
         guard !shortcuts.contains(where: { $0.action == action }) else { return }
         shortcuts.append(Shortcut(title: action.title, link: "", action: action))
+    }
+
+    func add(appleShortcut name: String) {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty,
+              !shortcuts.contains(where: { $0.appleShortcut == clean }) else { return }
+        shortcuts.append(Shortcut(title: clean, link: "", appleShortcut: clean))
+    }
+
+    /// Every shortcut in the user's Shortcuts.app library, by name.
+    static func libraryNames() async -> [String] {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+                process.arguments = ["list"]
+                let out = Pipe()
+                process.standardOutput = out
+                process.standardError = FileHandle.nullDevice
+                do {
+                    try process.run()
+                    let data = out.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
+                    let names = String(data: data, encoding: .utf8)?
+                        .split(separator: "\n")
+                        .map { String($0).trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty } ?? []
+                    continuation.resume(returning: names)
+                } catch {
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+
+    /// Run a Shortcuts.app shortcut by name. Launch is optimistic;
+    /// a non-zero exit speaks through `announce` since the process
+    /// outlives the tap that started it.
+    func runAppleShortcut(_ name: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+        process.arguments = ["run", name]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { [weak self] finished in
+            guard finished.terminationStatus != 0 else { return }
+            Task { @MainActor in
+                self?.announce?("Couldn't run \(name)")
+            }
+        }
+        do {
+            try process.run()
+        } catch {
+            announce?("Couldn't run \(name)")
+        }
     }
 
     /// Actions not on the grid yet, offered by the add flow. Empty
@@ -229,6 +291,10 @@ final class ShortcutStore: ObservableObject {
     func open(_ shortcut: Shortcut) -> Bool {
         if let action = shortcut.action {
             action.run()
+            return true
+        }
+        if let name = shortcut.appleShortcut {
+            runAppleShortcut(name)
             return true
         }
         if let url = Self.resolvedURL(for: shortcut.link),

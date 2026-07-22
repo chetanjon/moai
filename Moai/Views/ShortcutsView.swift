@@ -14,6 +14,10 @@ struct ShortcutsView: View {
     @State private var draftTitle = ""
     @State private var draftLink = ""
     @FocusState private var linkFieldFocused: Bool
+    /// Choosing from the Shortcuts.app library instead of typing.
+    @State private var pickingShortcut = false
+    @State private var libraryNames: [String] = []
+    @State private var libraryLoaded = false
 
     init(model: NotchViewModel) {
         self.model = model
@@ -23,8 +27,12 @@ struct ShortcutsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             if adding {
-                addRow
-                quickAddRow
+                if pickingShortcut {
+                    shortcutPicker
+                } else {
+                    addRow
+                    quickAddRow
+                }
             }
             if store.shortcuts.isEmpty && !adding {
                 EmptyPaneHint(message: "Save the places you jump to, sites, apps, folders.") {
@@ -79,13 +87,33 @@ struct ShortcutsView: View {
                 model.wantsShortcutAdd = false
             }
         }
-        // The flag can flip before this pane mounts (tab switch and
-        // request arrive together); consume it on arrival too.
+        .onChange(of: model.wantsShortcutPick) { _, wants in
+            if wants {
+                beginPicking()
+                model.wantsShortcutPick = false
+            }
+        }
+        // The flags can flip before this pane mounts (tab switch and
+        // request arrive together); consume them on arrival too.
         .onAppear {
             if model.wantsShortcutAdd {
                 beginAdding()
                 model.wantsShortcutAdd = false
             }
+            if model.wantsShortcutPick {
+                beginPicking()
+                model.wantsShortcutPick = false
+            }
+        }
+    }
+
+    private func beginPicking() {
+        adding = true
+        pickingShortcut = true
+        guard !libraryLoaded else { return }
+        Task {
+            libraryNames = await ShortcutStore.libraryNames()
+            libraryLoaded = true
         }
     }
 
@@ -168,7 +196,48 @@ struct ShortcutsView: View {
                     }
                 }
                 quickChip(title: "Pick an app…", symbol: "macwindow") { pickApp() }
+                quickChip(title: "Run a Shortcut…", symbol: "wand.and.stars") {
+                    pickingShortcut = true
+                    guard !libraryLoaded else { return }
+                    Task {
+                        libraryNames = await ShortcutStore.libraryNames()
+                        libraryLoaded = true
+                    }
+                }
             }
+        }
+    }
+
+    /// The user's Shortcuts.app library as tappable chips; one tap
+    /// pins a shortcut to the grid.
+    private var shortcutPicker: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.s) {
+                Text(
+                    libraryLoaded && libraryNames.isEmpty
+                        ? "Nothing in your Shortcuts app yet."
+                        : "From your Shortcuts app, one tap pins it:"
+                )
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.textHint)
+                Spacer(minLength: 0)
+                CloseButton {
+                    pickingShortcut = false
+                }
+            }
+            .padding(.leading, Theme.Space.xs)
+            ScrollView {
+                FlowLayout(spacing: Theme.Space.s) {
+                    ForEach(libraryNames, id: \.self) { name in
+                        quickChip(title: name, symbol: "wand.and.stars") {
+                            store.add(appleShortcut: name)
+                            pickingShortcut = false
+                            adding = false
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 170)
         }
     }
 
@@ -248,6 +317,10 @@ private struct ShortcutChip: View {
     @Environment(\.moaiAccent) private var accent
     @State private var hovered = false
 
+    private static let shortcutsAppIcon = NSWorkspace.shared.icon(
+        forFile: "/System/Applications/Shortcuts.app"
+    )
+
     var body: some View {
         Button(action: open) {
             VStack(spacing: Theme.Space.s) {
@@ -296,6 +369,11 @@ private struct ShortcutChip: View {
                         .foregroundStyle(accent)
                 }
                 .frame(width: 26, height: 26)
+            } else if shortcut.appleShortcut != nil {
+                // Shortcuts.app's own face marks the tile's kind.
+                Image(nsImage: Self.shortcutsAppIcon)
+                    .resizable()
+                    .frame(width: 26, height: 26)
             } else if let fileIcon = ShortcutStore.fileIcon(for: shortcut.link) {
                 Image(nsImage: fileIcon)
                     .resizable()

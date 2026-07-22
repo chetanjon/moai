@@ -540,16 +540,6 @@ final class NotchViewModel: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// The global hotkey: tap to listen from anywhere, tap again to
-    /// run. From the answer surface it starts a fresh session.
-    func summon() {
-        if state == .collapsed {
-            beginListening()
-        } else {
-            toggleListening()
-        }
-    }
-
     /// Discard the recording without running anything.
     func cancelListening() {
         guard state == .listening else { return }

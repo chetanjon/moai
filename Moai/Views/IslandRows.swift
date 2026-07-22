@@ -395,13 +395,10 @@ struct AnswerView: View {
         model.submit(typed)
     }
 
-    /// Name the summon key while one is set; the words track Settings.
+    /// Two doors, no keyboard shortcut: the summon key retired
+    /// (2026-07-21, it fought macOS and lost twice).
     private var idleHint: String {
-        let key = HotkeySummon.current
-        guard key != .off else {
-            return "Type below, tap the mic, or hold the notch."
-        }
-        return "Type below, tap the mic, or hit \(key.display) anywhere."
+        "Type below, or tap the mic and say it."
     }
 
     private var answerText: some View {

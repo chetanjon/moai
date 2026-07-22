@@ -39,7 +39,6 @@ struct SettingsPane: View {
     @AppStorage(ChatController.serviceKey) private var chatService = "claude"
 
     @AppStorage("expandOnHover") private var expandOnHover = true
-    @AppStorage(HotkeySummon.settingKey) private var summonKey = "optSpace"
     @AppStorage(VoiceController.pinnedUIDKey) private var voiceInputUID = ""
     @AppStorage("openDelay") private var openDelay = 0.12
     @AppStorage("collapseDelay") private var collapseDelay = 0.05
@@ -123,18 +122,6 @@ struct SettingsPane: View {
                     }
                 }
                 section("Island", reveal: 1) {
-                    row("Summon voice") {
-                        picker($summonKey, [
-                            ("⌥Space", "optSpace"), ("⌃Space", "ctrlSpace"),
-                            ("⇧⌘Space", "cmdShiftSpace"), ("Off", "off"),
-                        ], width: 236)
-                    }
-                    if summonKey == "ctrlSpace" {
-                        Text("macOS usually keeps ⌃Space for input source switching; if nothing happens, ⌥Space is the safe pick.")
-                            .font(Theme.Fonts.caption)
-                            .foregroundStyle(Theme.textHint)
-                    }
-                    divider
                     row("Microphone") {
                         Picker("", selection: $voiceInputUID) {
                             Text("Automatic").tag("")

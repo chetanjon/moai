@@ -105,7 +105,6 @@ final class NotchWindowController {
     private var hoverTimer: Timer?
     private var stateSub: AnyCancellable?
     private var napActivity: NSObjectProtocol?
-    private var summon: HotkeySummon?
     private var pointerInside = false
     /// Drag-in-flight sensing: the drag pasteboard's changeCount moves
     /// when a session begins anywhere in the system.
@@ -239,12 +238,6 @@ final class NotchWindowController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.hideDropDock()
             }
-        }
-
-        // Voice from anywhere: the summon key toggles a listening
-        // session without the mouse ever visiting the notch.
-        summon = HotkeySummon { [weak self] in
-            self?.viewModel.summon()
         }
 
         // Clicking anywhere outside the app dismisses whatever the

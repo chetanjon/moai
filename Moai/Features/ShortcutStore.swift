@@ -168,6 +168,43 @@ final class ShortcutStore: ObservableObject {
     /// opens instead of failing as a non-URL.
     private let apps = AppIndex()
 
+    /// Favicons by host, fetched once per launch from the site's own
+    /// /favicon.ico; no third-party icon service ever sees the list.
+    @Published private(set) var favicons: [String: NSImage] = [:]
+    private var faviconFetches: Set<String> = []
+
+    /// The real app icon for a bare-name shortcut ("notes" wears the
+    /// Notes icon, not a monogram); nil when the link is a URL/path.
+    func appIcon(for shortcut: Shortcut) -> NSImage? {
+        guard shortcut.action == nil,
+              Self.resolvedURL(for: shortcut.link) == nil else { return nil }
+        let name = shortcut.link.isEmpty ? shortcut.title : shortcut.link
+        guard let url = apps.lookup(name) else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
+
+    /// Cached favicon for a web shortcut; kicks off the fetch on the
+    /// first miss and returns nil until it lands.
+    func favicon(for shortcut: Shortcut) -> NSImage? {
+        guard shortcut.action == nil,
+              let url = Self.resolvedURL(for: shortcut.link), !url.isFileURL,
+              let host = url.host else { return nil }
+        if let cached = favicons[host] { return cached }
+        fetchFavicon(host: host)
+        return nil
+    }
+
+    private func fetchFavicon(host: String) {
+        guard !faviconFetches.contains(host),
+              let url = URL(string: "https://\(host)/favicon.ico") else { return }
+        faviconFetches.insert(host)
+        Task { [weak self] in
+            guard let data = try? await URLSession.shared.data(from: url).0,
+                  let image = NSImage(data: data), image.isValid else { return }
+            await MainActor.run { self?.favicons[host] = image }
+        }
+    }
+
     @discardableResult
     func open(_ shortcut: Shortcut) -> Bool {
         if let action = shortcut.action {

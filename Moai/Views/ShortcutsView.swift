@@ -242,7 +242,7 @@ struct ShortcutsView: View {
 /// affordance and highlight never bleed between chips.
 private struct ShortcutChip: View {
     let shortcut: ShortcutStore.Shortcut
-    let store: ShortcutStore
+    @ObservedObject var store: ShortcutStore
     let open: () -> Void
 
     @Environment(\.moaiAccent) private var accent
@@ -299,6 +299,20 @@ private struct ShortcutChip: View {
             } else if let fileIcon = ShortcutStore.fileIcon(for: shortcut.link) {
                 Image(nsImage: fileIcon)
                     .resizable()
+                    .frame(width: 26, height: 26)
+            } else if let appIcon = store.appIcon(for: shortcut) {
+                // A bare app name wears the app's own face.
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .frame(width: 26, height: 26)
+            } else if let favicon = store.favicon(for: shortcut) {
+                // A site wears its favicon, fetched from the site
+                // itself and rounded to sit like the app icons do.
+                Image(nsImage: favicon)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 24, height: 24)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .frame(width: 26, height: 26)
             } else {
                 ZStack {

@@ -49,6 +49,7 @@ struct SettingsPane: View {
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "silver"
     @AppStorage("glanceMusic") private var glanceMusic = true
+    @AppStorage("playingSignal") private var playingSignal = "wave"
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     @AppStorage("glanceIdle") private var glanceIdle = "none"
 
@@ -172,6 +173,15 @@ struct SettingsPane: View {
                     }
                 }
                 section("Glance", reveal: 2) {
+                    row("While playing") {
+                        picker($playingSignal, [
+                            ("Wave", "wave"), ("Quiet", "quiet"),
+                        ])
+                    }
+                    Text("Wave dances beside the notch; Quiet leaves only the breathing rim.")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.textHint)
+                    divider
                     toggleRow("Clear the glance while playing", $glanceMusic)
                     divider
                     toggleRow("Event coming up", $glanceNextEvent)

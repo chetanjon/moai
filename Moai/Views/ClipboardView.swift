@@ -40,6 +40,20 @@ private struct ClipRow: View {
                     .font(Theme.Fonts.body)
                     .foregroundStyle(Theme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let paths = clip.filePaths, let first = paths.first {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: first))
+                    .resizable()
+                    .frame(width: 24, height: 24)
+                Text(
+                    paths.count == 1
+                        ? (first as NSString).lastPathComponent
+                        : "\((first as NSString).lastPathComponent) + \(paths.count - 1) more"
+                )
+                .font(Theme.Fonts.body)
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 Text(clip.text ?? "")
                     .font(Theme.Fonts.body)
@@ -65,7 +79,12 @@ private struct ClipRow: View {
                 // moves one across.
                 IconActionButton(symbol: "tray.and.arrow.down", tint: Theme.textSecondary) {
                     let kept: Bool
-                    if let source = clip.imageURL {
+                    if let paths = clip.filePaths, !paths.isEmpty {
+                        // Copied files shelve as themselves, same as
+                        // a drop would.
+                        paths.forEach { model.shelf.add(URL(fileURLWithPath: $0)) }
+                        kept = true
+                    } else if let source = clip.imageURL {
                         kept = model.shelf.keep(imageAt: source)
                     } else {
                         kept = model.shelf.keep(text: clip.text ?? "")
@@ -93,6 +112,9 @@ private struct ClipRow: View {
         // Drag a clip back out to any app: a screenshot travels as
         // its file, text as text.
         .onDrag {
+            if let first = clip.filePaths?.first {
+                return NSItemProvider(object: NSURL(fileURLWithPath: first))
+            }
             if let url = clip.imageURL {
                 return NSItemProvider(object: url as NSURL)
             }

@@ -23,6 +23,7 @@ struct NotchRootView: View {
     @AppStorage("accentMode") private var accentMode = "silver"
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
+    @AppStorage("playingSignal") private var playingSignal = "wave"
     @AppStorage("islandMaterial") private var islandMaterial = "ink"
     @AppStorage("glassClarity") private var glassClarity = "balanced"
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
@@ -60,12 +61,13 @@ struct NotchRootView: View {
     }
 
     /// Each wing earns exactly what its content needs: the ring and
-    /// countdown want 54. Music no longer rents wing space at all;
-    /// while it plays the pill is bare hardware and the breathing
-    /// accent rim carries the signal (user call, 2026-07-21, after
-    /// the waveform kept clipping against the notch shoulders).
+    /// countdown want 54, the returning wave takes 34 with room to
+    /// spare of the notch shoulders that clipped its 30pt first life.
+    /// Quiet mode keeps the bare pill and lets the rim carry it
+    /// (both moods proved real within one day, so it's a setting).
     private var leftWingNeed: CGFloat {
         if focus.isActive || timer.isActive { return 54 }
+        if playingSignal == "wave", music.nowPlaying?.isPlaying == true { return 34 }
         return 0
     }
 
@@ -635,6 +637,9 @@ struct NotchRootView: View {
                         .foregroundStyle(Theme.textPrimary)
                 }
                 .padding(.leading, Theme.Space.wingInset)
+            } else if playingSignal == "wave", music.nowPlaying?.isPlaying == true {
+                NowPlayingBars(accent: accent, barCount: 4, maxHeight: 10)
+                    .padding(.leading, Theme.Space.wingInset)
             }
             // While music plays the glance belongs to the song and its
             // wave alone; the soundscape symbol steps back.

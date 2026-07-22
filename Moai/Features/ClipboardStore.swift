@@ -7,14 +7,17 @@ final class ClipboardStore: ObservableObject {
         var id = UUID()
         var date = Date()
         /// Text clips carry `text`; image clips (screenshots, copied
-        /// pictures) carry a PNG on disk at `imageURL`.
+        /// pictures) carry a PNG on disk at `imageURL`; file clips
+        /// (Finder copies) carry the copied paths.
         var text: String?
         var imageURL: URL?
+        var filePaths: [String]?
         /// Pinned clips float to the top, never age out, and come
         /// back after a relaunch. History stays ephemeral.
         var pinned = false
 
         var isImage: Bool { imageURL != nil }
+        var isFile: Bool { !(filePaths ?? []).isEmpty }
 
         static func == (lhs: Clip, rhs: Clip) -> Bool {
             lhs.id == rhs.id && lhs.pinned == rhs.pinned
@@ -51,6 +54,18 @@ final class ClipboardStore: ObservableObject {
 
         if let types = pasteboard.types,
            types.contains(concealedType) || types.contains(transientType) {
+            return
+        }
+
+        // A copied file first: Finder puts the file's NAME on the
+        // pasteboard as text too, and capturing that as a text clip
+        // was the last incoherence between the stream and the keep.
+        // The file itself is the meaning.
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL],
+           !urls.isEmpty, urls.allSatisfy(\.isFileURL) {
+            let paths = urls.map(\.path)
+            if firstUnpinned?.filePaths == paths { return }
+            insert(Clip(filePaths: paths))
             return
         }
 
@@ -126,7 +141,9 @@ final class ClipboardStore: ObservableObject {
     func copyBack(_ clip: Clip) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        if let text = clip.text {
+        if let paths = clip.filePaths, !paths.isEmpty {
+            pasteboard.writeObjects(paths.map { NSURL(fileURLWithPath: $0) })
+        } else if let text = clip.text {
             pasteboard.setString(text, forType: .string)
         } else if let url = clip.imageURL, let image = NSImage(contentsOf: url) {
             pasteboard.writeObjects([image])

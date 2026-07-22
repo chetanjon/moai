@@ -224,8 +224,12 @@ struct NotchRootView: View {
     @ViewBuilder
     private var glassFill: some View {
         if #available(macOS 26.0, *) {
+            // The clear variant, untinted: as transparent as the OS
+            // makes glass (user call, 2026-07-22, "I want that to be
+            // transparent"). The material's own refraction is all
+            // that separates island from desktop.
             Color.clear
-                .glassEffect(.regular.tint(Color.black.opacity(0.30)), in: islandShape)
+                .glassEffect(.clear, in: islandShape)
         } else {
             ZStack {
                 VisualEffectBlur()
@@ -236,11 +240,10 @@ struct NotchRootView: View {
         }
     }
 
-    /// How much ink still lies over the open glass. Liquid Glass
-    /// carries its own legibility tint, so almost none; the old
-    /// material needs more smoke.
+    /// How much ink still lies over the open glass: none where the
+    /// real material exists, smoke where only blur does.
     private var openSmoke: Double {
-        if #available(macOS 26.0, *) { return 0.10 }
+        if #available(macOS 26.0, *) { return 0 }
         return 0.30
     }
 

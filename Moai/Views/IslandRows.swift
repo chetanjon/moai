@@ -358,17 +358,50 @@ struct AnswerView: View {
             } else {
                 answerText
             }
+            commandBar
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The reliable twin to voice: the same verbs, typed. One input
+    /// modality is a single point of failure (a whole day of voice
+    /// archaeology, 2026-07-21, proved it), so the engine keeps a
+    /// second mouth that no microphone can betray.
+    private var commandBar: some View {
+        HStack(spacing: Theme.Space.s) {
+            TextField("remind, note, focus, or ask", text: $model.draftPrompt)
+                .textFieldStyle(.plain)
+                .font(Theme.Fonts.body)
+                .onSubmit(submitDraft)
+            if !model.draftPrompt.isEmpty {
+                HoverGlyphButton(
+                    symbol: "arrow.up.circle.fill", scale: .m, tint: accent
+                ) {
+                    submitDraft()
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(Theme.Space.m)
+        .moaiField()
+        .padding(.top, Theme.Space.xs)
+        .animation(Theme.Motion.hover, value: model.draftPrompt.isEmpty)
+    }
+
+    private func submitDraft() {
+        let typed = model.draftPrompt.trimmingCharacters(in: .whitespaces)
+        model.draftPrompt = ""
+        guard !typed.isEmpty else { return }
+        model.submit(typed)
     }
 
     /// Name the summon key while one is set; the words track Settings.
     private var idleHint: String {
         let key = HotkeySummon.current
         guard key != .off else {
-            return "Hold the notch or tap the mic, I'm listening."
+            return "Type below, tap the mic, or hold the notch."
         }
-        return "Hold the notch, tap the mic, or hit \(key.display) anywhere."
+        return "Type below, tap the mic, or hit \(key.display) anywhere."
     }
 
     private var answerText: some View {

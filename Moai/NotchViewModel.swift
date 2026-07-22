@@ -157,9 +157,6 @@ final class NotchViewModel: ObservableObject {
 
     init() {
         focus = FocusController(ambience: ambience)
-        // Before any view can read the key: legacy plaintext storage
-        // moves into the Keychain once.
-        KeychainStore.migrateFromDefaults(key: "anthropicKey", account: "anthropicKey")
         timer.onComplete = { [weak self] minutes in
             guard let self else { return }
             self.focusStats.recordSession(minutes: minutes)
@@ -624,18 +621,11 @@ final class NotchViewModel: ObservableObject {
             }
             logVoice(text, outcome: "no verb matched, went to the model")
 
-            // Beyond local verbs, freeform questions go to a model. The
-            // Mac's on-device model answers with no key; a cloud provider
-            // (added quietly in Settings) takes over only when its key is
-            // on file. None of this is surfaced in the island UI.
-            let provider = AIProvider.current
-            var key = ""
-            if provider.needsKey {
-                key = KeychainStore.read(provider.keychainAccount) ?? ""
-            }
-            let ready = provider == .local ? AIService.localModelAvailable : !key.isEmpty
-            guard ready else {
-                answer = "That one needs a model. Turn on Apple Intelligence, or add a key in Settings. Reminders, notes, timers, focus, calendar, and music all work without one."
+            // Beyond local verbs, freeform questions go to the Mac's
+            // own model, keyless. Long conversations belong to the
+            // Chat tab, where the user's real subscription lives.
+            guard AIService.localModelAvailable else {
+                answer = "That one needs Apple Intelligence, System Settings, Apple Intelligence and Siri. Reminders, notes, timers, focus, calendar, and music all work without it, and the Chat tab carries your own Claude, ChatGPT, or Gemini."
                 return
             }
 
@@ -644,9 +634,7 @@ final class NotchViewModel: ObservableObject {
             // remember the exact words.
             if pendingContext == nil, text.count < 160 {
                 isWorking = true
-                let verb = await AIService.translateToVerb(
-                    text, provider: provider, apiKey: key
-                )
+                let verb = await AIService.translateToVerb(text)
                 isWorking = false
                 if let verb, verb.lowercased() != text.lowercased(),
                    let acted = await engine.handle(verb) {
@@ -671,9 +659,7 @@ final class NotchViewModel: ObservableObject {
             lastStreamActivity = Date()
             let streaming = Task { [weak self] in
                 do {
-                    for try await delta in AIService.stream(
-                        prompt: fullPrompt, provider: provider, apiKey: key
-                    ) {
+                    for try await delta in AIService.stream(prompt: fullPrompt) {
                         guard let self else { return }
                         self.answer += delta
                         self.lastStreamActivity = Date()

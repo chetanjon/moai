@@ -23,7 +23,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - `note: something` captures locally. `notes` lists. `clear notes` wipes.
 - `play`, `pause`, `skip`, `previous` control music.
 - Dates parsed deterministically with NSDataDetector. Verbs by prefix. Zero network, zero key, instant.
-- Anything beyond the verbs goes to Claude only if the optional key is set (gear icon).
+- Anything beyond the verbs goes to the Mac's own on-device model, keyless. Long conversations belong to the Chat tab and your own subscription.
 
 **Voice**
 - Hold to talk, on-device speech recognition (requiresOnDeviceRecognition), live level bars, release to run. Words never leave the Mac.

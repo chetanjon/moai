@@ -17,7 +17,6 @@ struct SettingsPane: View {
     @AppStorage(UpdateChecker.settingKey) private var updateCheckOn = true
 
     @State private var launchAtLogin = false
-    @State private var apiKeys: [AIProvider: String] = [:]
     /// The mics on offer right now, refreshed each time the pane
     /// opens; (name, uid) pairs for the Microphone picker.
     @State private var inputDevices: [(name: String, uid: String)] = []
@@ -222,27 +221,12 @@ struct SettingsPane: View {
                         Spacer()
                     }
                 }
-                section("Cloud AI (optional)", reveal: 5) {
-                    let keyed = AIProvider.allCases.filter(\.needsKey)
-                    ForEach(keyed, id: \.self) { provider in
-                        keyField(for: provider)
-                        if provider != keyed.last {
-                            divider
-                        }
-                    }
-                    Text("Only for questions the local verbs can't answer. The Mac's own model handles those with no key. Keys stay on this Mac.")
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.textHint)
-                }
                 footer
             }
             .padding(.bottom, Theme.Space.m)
         }
         .onAppear {
             launchAtLogin = SMAppService.mainApp.status == .enabled
-            for provider in AIProvider.allCases where provider.needsKey {
-                apiKeys[provider] = KeychainStore.read(provider.keychainAccount) ?? ""
-            }
             var devices = SystemVolume.inputDevices()
                 .filter { !$0.uid.isEmpty }
                 .map { (name: $0.name, uid: $0.uid) }
@@ -260,34 +244,6 @@ struct SettingsPane: View {
                 lists.append((title: "Missing list", id: reminderListID))
             }
             reminderLists = lists
-        }
-        .onDisappear { saveKeys() }
-    }
-
-    private func keyField(for provider: AIProvider) -> some View {
-        HStack(spacing: Theme.Space.m) {
-            Text(provider.displayName)
-                .font(Theme.Fonts.body)
-                .foregroundStyle(Theme.textSecondary)
-                .frame(width: 56, alignment: .leading)
-            SecureField(
-                provider.keyPlaceholder,
-                text: Binding(
-                    get: { apiKeys[provider] ?? "" },
-                    set: { apiKeys[provider] = $0 }
-                )
-            )
-            .onSubmit { saveKeys() }
-            .textFieldStyle(.plain)
-            .font(Theme.Fonts.bodyMono)
-            .padding(Theme.Space.m)
-            .moaiField()
-        }
-    }
-
-    private func saveKeys() {
-        for provider in AIProvider.allCases where provider.needsKey {
-            KeychainStore.write(apiKeys[provider] ?? "", account: provider.keychainAccount)
         }
     }
 

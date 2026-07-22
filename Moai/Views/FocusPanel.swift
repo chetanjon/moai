@@ -35,25 +35,18 @@ struct FocusPanel: View {
                 .font(Theme.Fonts.body)
                 .foregroundStyle(Theme.textHint)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: Theme.Space.m) {
-                Text("Just a timer")
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.textTertiary)
-                ForEach([5, 10, 20], id: \.self) { minutes in
-                    timerChip(minutes)
-                }
-            }
-            .padding(.top, Theme.Space.xs)
-            // Its own line, its own words: living among the timer
-            // chips it read as a fourth preset, and a tap one slot
-            // over counted backwards (user, 2026-07-22, "you gave a
-            // timer"). Down and up are different instruments.
+            // The timer chips are gone (user, 2026-07-22, "we don't
+            // need that"): focus presets cover timed work here, and
+            // "timer 10" remains a spoken and typed verb. The
+            // stopwatch keeps its own line; down and up are
+            // different instruments.
             HStack(spacing: Theme.Space.m) {
                 Text("Count up")
                     .font(Theme.Fonts.caption)
                     .foregroundStyle(Theme.textTertiary)
                 stopwatchChip
             }
+            .padding(.top, Theme.Space.xs)
             goalRow
             if !stats.days.isEmpty {
                 statsBlock
@@ -194,22 +187,6 @@ struct FocusPanel: View {
 
     private static func dayName(_ day: Date) -> String {
         nameFormatter.string(from: day)
-    }
-
-    private func timerChip(_ minutes: Int) -> some View {
-        Button {
-            timer.start(minutes: minutes)
-        } label: {
-            Text("\(minutes) min")
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.horizontal, Theme.Space.m)
-                .frame(minHeight: 22)
-                .background(Capsule().fill(Theme.surface))
-                .overlay(Capsule().strokeBorder(Theme.hairlineFaint, lineWidth: 1))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(PressableStyle())
     }
 
     /// The count-up door, beside the countdown chips.

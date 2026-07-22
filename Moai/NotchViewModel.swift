@@ -130,6 +130,7 @@ final class NotchViewModel: ObservableObject {
     let notes = NotesStore()
     let events = EventKitService()
     let timer = CountdownController()
+    let stopwatch = StopwatchController()
     let ambience = AmbienceController()
     let focus: FocusController
     let focusStats = FocusStatsStore()

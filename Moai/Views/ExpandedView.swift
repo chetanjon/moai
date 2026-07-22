@@ -7,6 +7,7 @@ struct ExpandedView: View {
     @ObservedObject var model: NotchViewModel
     @ObservedObject var music: MusicController
     @ObservedObject var timer: CountdownController
+    @ObservedObject var stopwatch: StopwatchController
     @ObservedObject var focus: FocusController
     @ObservedObject var ambience: AmbienceController
     @ObservedObject var activities: ActivityStore
@@ -30,6 +31,7 @@ struct ExpandedView: View {
         self.model = model
         self.music = model.music
         self.timer = model.timer
+        self.stopwatch = model.stopwatch
         self.focus = model.focus
         self.ambience = model.ambience
         self.activities = model.activities
@@ -58,11 +60,12 @@ struct ExpandedView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
-            if focus.isActive || timer.isActive {
+            if focus.isActive || timer.isActive || stopwatch.isActive {
                 SessionStrip(
-                    kind: focus.isActive ? .focus : .timer,
+                    kind: focus.isActive ? .focus : timer.isActive ? .timer : .stopwatch,
                     focus: focus,
-                    timer: timer
+                    timer: timer,
+                    stopwatch: stopwatch
                 ) {
                     withAnimation(Theme.Motion.content) { model.tab = .focus }
                 }

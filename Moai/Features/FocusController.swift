@@ -48,6 +48,43 @@ final class CountdownController: ObservableObject {
     }
 }
 
+/// Counts up until told to stop; the reading is the whole point.
+@MainActor
+final class StopwatchController: ObservableObject {
+    @Published var elapsed = 0
+    @Published var isActive = false
+    private var timer: Timer?
+
+    func start() {
+        elapsed = 0
+        isActive = true
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.elapsed += 1 }
+        }
+    }
+
+    /// Stop and hand back the reading.
+    @discardableResult
+    func stop() -> String {
+        timer?.invalidate()
+        timer = nil
+        isActive = false
+        let reading = display
+        elapsed = 0
+        return reading
+    }
+
+    var display: String {
+        let hours = elapsed / 3600
+        let minutes = (elapsed % 3600) / 60
+        let seconds = elapsed % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
 @MainActor
 final class FocusController: ObservableObject {
     enum Phase {

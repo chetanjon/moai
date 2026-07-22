@@ -19,8 +19,9 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - `remind me to call amma at 6` becomes a real Reminder with an alarm.
 - `schedule lunch with sarah friday at 1` becomes a real Calendar event.
 - `agenda` or `today` drops today's calendar out of the notch.
-- `focus 25` starts a pomodoro with synthesized brown noise, countdown live in the notch wing. `stop focus` ends it.
-- `timer 10` runs a countdown in the wing.
+- `focus 25` starts a pomodoro with synthesized brown noise, its progress ring live beside the notch. `stop focus` ends it.
+- `timer 10` runs a countdown in the wing. `stopwatch` counts up until you say `stop stopwatch`; the reading is the answer.
+- Running sessions mark the closed pill with a small symbol (the progress ring, or a stopwatch glyph), never digits; numbers live in the open island.
 - `brown noise` / `white noise` / `pink noise`, generated live, no audio files, works offline.
 - `note: something` captures locally. `notes` lists. `clear notes` wipes.
 - `play`, `pause`, `skip`, `previous` control music.
@@ -32,8 +33,8 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 - Hold to talk or tap the mic; recognition is Apple standard dictation, on-device when the model is warm, Apple dictation service otherwise, the same path Notes and Messages use. Your music ducks while you speak.
 
 **Music**
-- Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, a small wave dances beside the notch (or nothing, in Quiet mode) and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing. Wave, rim, and the session countdown each have their own switch in Settings, so the closed pill can be exactly as bare as you like.
-- With music and a focus session running together, the wave keeps the left wing and the countdown crosses to the right.
+- Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, a small wave dances beside the notch (or nothing, in Quiet mode) and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing. Wave, rim, and the session mark each have their own switch in Settings, so the closed pill can be exactly as bare as you like.
+- With music and a session running together, the wave keeps the left wing and the session mark crosses to the right.
 - The opened island comes in two materials, ink or liquid glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
 - On a notchless monitor the collapsed island shows nothing at all; the top edge still opens it on hover. Pixels over someone's window need a reason to exist.
 

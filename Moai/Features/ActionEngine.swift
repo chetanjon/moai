@@ -87,6 +87,18 @@ final class ActionEngine {
             model.ambience.stop()
             return "Quiet."
         }
+        if ["stop stopwatch", "stop the stopwatch", "stopwatch stop"].contains(lower) {
+            guard model.stopwatch.isActive else { return "No stopwatch running." }
+            return "Stopped at \(model.stopwatch.stop())."
+        }
+        if ["stopwatch", "start stopwatch", "start the stopwatch",
+            "start a stopwatch"].contains(lower) {
+            if model.stopwatch.isActive {
+                return "Running, \(model.stopwatch.display). Say stop stopwatch when done."
+            }
+            model.stopwatch.start()
+            return "Stopwatch running. Say stop stopwatch when done."
+        }
 
         // Reminders you already have: list them, or tick one off. Run
         // before the create-reminder prefixes so "complete X" and
@@ -553,7 +565,7 @@ final class ActionEngine {
     remind me to call amma at 6 · schedule lunch friday at 1
     what's next · agenda · what's due · done with the thing
     cancel my 3pm · move standup to 4 · undo
-    focus 25 · timer 10 · stop focus · rain · fire · cafe · quiet
+    focus 25 · timer 10 · stopwatch · stop focus · rain · fire · cafe · quiet
     play · pause · next · open figma · quit slack
     text amma: on my way, then say send to send it
     left half · right half · fill · center

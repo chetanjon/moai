@@ -5,6 +5,7 @@ struct NotchRootView: View {
     @ObservedObject var model: NotchViewModel
     @ObservedObject var music: MusicController
     @ObservedObject var timer: CountdownController
+    @ObservedObject var stopwatch: StopwatchController
     @ObservedObject var focus: FocusController
     @ObservedObject var voice: VoiceController
     @ObservedObject var ambience: AmbienceController
@@ -45,6 +46,7 @@ struct NotchRootView: View {
         self.model = model
         self.music = model.music
         self.timer = model.timer
+        self.stopwatch = model.stopwatch
         self.focus = model.focus
         self.voice = model.voice
         self.ambience = model.ambience
@@ -59,25 +61,29 @@ struct NotchRootView: View {
         glanceNextEvent ? events.nextEvent : nil
     }
 
-    private var hasLeftWing: Bool {
-        focus.isActive || timer.isActive
+    /// Anything counting: a pomodoro, a plain timer, the stopwatch.
+    private var sessionActive: Bool {
+        focus.isActive || timer.isActive || stopwatch.isActive
     }
 
+    private var hasLeftWing: Bool { sessionActive }
+
     /// Music and a session at once: the wave keeps the left wing and
-    /// the countdown digits take the right (user, 2026-07-22).
+    /// the session mark takes the right (user, 2026-07-22).
     private var sessionOnRight: Bool {
-        glanceSession && (focus.isActive || timer.isActive)
+        glanceSession && sessionActive
             && music.nowPlaying?.isPlaying == true
     }
 
-    /// Each wing earns exactly what its content needs: bare digits
-    /// want 44 (the ring came off, one mark of time is enough), the
-    /// slimmed wave takes 28. Quiet mode keeps the bare pill and lets
-    /// the rim carry it (both moods proved real within one day, so
-    /// it's a setting).
+    /// Each wing earns exactly what its content needs: the session
+    /// mark wants 26 (digits clipped at real pomodoro widths, so the
+    /// wing wears a symbol that cannot: the ring, or the stopwatch
+    /// glyph; user, 2026-07-22), the slimmed wave takes 28. Quiet
+    /// mode keeps the bare pill and lets the rim carry it (both moods
+    /// proved real within one day, so it's a setting).
     private var leftWingNeed: CGFloat {
         if playingSignal == "wave", music.nowPlaying?.isPlaying == true { return 28 }
-        if glanceSession, focus.isActive || timer.isActive, !sessionOnRight { return 44 }
+        if glanceSession, sessionActive, !sessionOnRight { return 26 }
         return 0
     }
 
@@ -95,7 +101,7 @@ struct NotchRootView: View {
     private var notchSideNeed: CGFloat {
         if model.glanceToast != nil { return 124 }
         if activities.glanceActivity != nil { return 118 }
-        if sessionOnRight { return 48 }
+        if sessionOnRight { return 30 }
         // A session shows only its left-wing ring and countdown; the
         // right-side FOCUS 1 OF 4 label was width without value
         // (user call, 2026-07-21).
@@ -118,7 +124,7 @@ struct NotchRootView: View {
     // not ride the middle here; they were width without value.
 
     private var monitorPlaying: Bool { music.nowPlaying?.isPlaying == true }
-    private var monitorSession: Bool { focus.isActive || timer.isActive }
+    private var monitorSession: Bool { sessionActive }
 
     private var monitorMiddleWidth: CGFloat {
         if model.glanceToast != nil { return 148 }
@@ -520,17 +526,26 @@ struct NotchRootView: View {
     /// The countdown at the pill's right, ring and all.
     private var sessionCompact: some View {
         HStack(spacing: Theme.Space.snug) {
-            ProgressRing(
-                progress: focus.isActive ? focus.progress : timer.progress,
-                size: 10,
-                lineWidth: 1.5,
-                tint: accent,
-                trackOpacity: 0.15
-            )
-            Text(focus.isActive ? focus.display : timer.display)
-                .font(Theme.Fonts.labelMono)
-                .foregroundStyle(Theme.textPrimary)
-                .opacity(focus.isActive && focus.isPaused ? 0.5 : 1)
+            if stopwatch.isActive, !focus.isActive, !timer.isActive {
+                Image(systemName: "stopwatch")
+                    .font(Theme.Fonts.icon(.xs))
+                    .foregroundStyle(accent)
+                Text(stopwatch.display)
+                    .font(Theme.Fonts.labelMono)
+                    .foregroundStyle(Theme.textPrimary)
+            } else {
+                ProgressRing(
+                    progress: focus.isActive ? focus.progress : timer.progress,
+                    size: 10,
+                    lineWidth: 1.5,
+                    tint: accent,
+                    trackOpacity: 0.15
+                )
+                Text(focus.isActive ? focus.display : timer.display)
+                    .font(Theme.Fonts.labelMono)
+                    .foregroundStyle(Theme.textPrimary)
+                    .opacity(focus.isActive && focus.isPaused ? 0.5 : 1)
+            }
         }
     }
 
@@ -543,9 +558,9 @@ struct NotchRootView: View {
         } else if let activity = activities.glanceActivity {
             activityGlance(activity, width: 106)
         } else if sessionOnRight {
-            // Music holds the left wing, so the countdown crosses
+            // Music holds the left wing, so the session mark crosses
             // over; the running session outranks quieter glances.
-            sessionDigits
+            sessionMark
         } else if let next = upcomingEvent {
             upcomingGlance(next, width: 100)
         } else if music.nowPlaying?.isPlaying == true, glanceMusic {
@@ -659,13 +674,26 @@ struct NotchRootView: View {
         }
     }
 
-    /// Bare digits, no ring: one mark of time is enough in a wing
-    /// (user, 2026-07-22, "only the timer number").
-    private var sessionDigits: some View {
-        Text(focus.isActive ? focus.display : timer.display)
-            .font(Theme.Fonts.labelMono)
-            .foregroundStyle(Theme.textPrimary)
+    /// One symbol, never digits: numbers clipped at real widths
+    /// ("24:53" is five characters), a mark cannot (user, 2026-07-22,
+    /// "add a visual symbol"). The ring still says how far along; the
+    /// stopwatch has no endpoint, so it wears its own glyph.
+    @ViewBuilder
+    private var sessionMark: some View {
+        if focus.isActive || timer.isActive {
+            ProgressRing(
+                progress: focus.isActive ? focus.progress : timer.progress,
+                size: 11,
+                lineWidth: 1.5,
+                tint: accent,
+                trackOpacity: 0.15
+            )
             .opacity(focus.isActive && focus.isPaused ? 0.5 : 1)
+        } else if stopwatch.isActive {
+            Image(systemName: "stopwatch")
+                .font(Theme.Fonts.icon(.xs))
+                .foregroundStyle(accent)
+        }
     }
 
     private var wingsContent: some View {
@@ -673,8 +701,8 @@ struct NotchRootView: View {
             if playingSignal == "wave", music.nowPlaying?.isPlaying == true {
                 NowPlayingBars(accent: accent, barCount: 4, maxHeight: 7)
                     .padding(.leading, Theme.Space.wingInset)
-            } else if glanceSession, focus.isActive || timer.isActive, !sessionOnRight {
-                sessionDigits
+            } else if glanceSession, sessionActive, !sessionOnRight {
+                sessionMark
                     .padding(.leading, Theme.Space.wingInset)
             }
             // While music plays the glance belongs to the song and its

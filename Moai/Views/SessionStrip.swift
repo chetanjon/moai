@@ -1,28 +1,37 @@
 import SwiftUI
 
-/// One strip for anything counting down, a pomodoro session or a
-/// plain timer. Same ring, same grammar; tap to open the Focus pane.
+/// One strip for anything counting, a pomodoro session, a plain
+/// timer, or the stopwatch. Same grammar; tap to open the Focus pane.
 struct SessionStrip: View {
     enum Kind {
         case focus
         case timer
+        case stopwatch
     }
 
     let kind: Kind
     @ObservedObject var focus: FocusController
     @ObservedObject var timer: CountdownController
+    @ObservedObject var stopwatch: StopwatchController
     let open: () -> Void
 
     @Environment(\.moaiAccent) private var accent
 
     var body: some View {
         HStack(spacing: Theme.Space.m) {
-            ProgressRing(
-                progress: kind == .focus ? focus.progress : timer.progress,
-                size: 14,
-                lineWidth: 1.5,
-                tint: ringTint
-            )
+            if kind == .stopwatch {
+                // Counting up has no endpoint for a ring to close.
+                Image(systemName: "stopwatch")
+                    .font(Theme.Fonts.icon(.s))
+                    .foregroundStyle(accent)
+            } else {
+                ProgressRing(
+                    progress: kind == .focus ? focus.progress : timer.progress,
+                    size: 14,
+                    lineWidth: 1.5,
+                    tint: ringTint
+                )
+            }
             Text(title)
                 .font(Theme.Fonts.bodyEmphasisMono)
                 .foregroundStyle(Theme.textPrimary)
@@ -43,7 +52,11 @@ struct SessionStrip: View {
                 }
             }
             CloseButton {
-                kind == .focus ? focus.stop() : timer.stop()
+                switch kind {
+                case .focus: focus.stop()
+                case .timer: timer.stop()
+                case .stopwatch: stopwatch.stop()
+                }
             }
         }
         .rowInsets()
@@ -59,6 +72,8 @@ struct SessionStrip: View {
             return focus.phase == .work ? "Focus \(focus.display)" : "Break \(focus.display)"
         case .timer:
             return "Timer \(timer.display)"
+        case .stopwatch:
+            return "Stopwatch \(stopwatch.display)"
         }
     }
 

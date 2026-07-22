@@ -49,7 +49,8 @@ struct AIService {
         remind me to <thing> at <time> / schedule <thing> <day> at <time> / \
         cancel <event> / move <event> to <time> / what's next / agenda / \
         what's due / done with <reminder> / undo / focus <minutes> / \
-        timer <minutes> / stop focus / stop timer / rain / fire / cafe / \
+        timer <minutes> / stopwatch / stop stopwatch / stop focus / \
+        stop timer / rain / fire / cafe / \
         brown noise / stop noise / play / pause / next / previous / \
         open <app or folder> / quit <app> / left half / right half / fill / \
         center / note: <text> / notes / find <words> / screenshot / \
@@ -102,10 +103,11 @@ struct AIService {
     /// left untouched, their own words are the payload.
     private static let canonicalCommands = [
         "what's next", "what's due", "stop focus", "stop timer",
-        "brown noise", "stop noise", "left half", "right half",
-        "screen record", "lock screen", "dark mode", "light mode",
-        "screenshot", "previous", "agenda", "center", "notes",
-        "pause", "next", "play", "rain", "fire", "cafe", "fill", "undo",
+        "stop stopwatch", "stopwatch", "brown noise", "stop noise",
+        "left half", "right half", "screen record", "lock screen",
+        "dark mode", "light mode", "screenshot", "previous", "agenda",
+        "center", "notes", "pause", "next", "play", "rain", "fire",
+        "cafe", "fill", "undo",
     ]
 
     private static let parameterizedPrefixes = [

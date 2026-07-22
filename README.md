@@ -96,7 +96,7 @@ Open this folder in Claude Code and paste:
 
 ## Roadmap
 
-- **v1.5:** Messages sending, menu bar countdown.
+- **v1.5:** Messages sending. (Menu bar countdown was pruned: the island already carries the countdown on every display, and two surfaces for one number is the kind of thing this app exists to refuse.)
 - **v2:** meeting brief before your next call, screen context.
 - Distribution: Homebrew cask; a notarized build if enrollment ever earns its $99. The landing page is [live](https://chetanjon.github.io/moai/).
 

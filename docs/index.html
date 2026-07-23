@@ -5,7 +5,7 @@
 <meta property="og:title" content="Chalant · the AI-native dynamic island for Mac">
 <meta property="og:description" content="Talk to your notch. Calendar, music, texting with read-back, screen reading. Keyless, on-device, free.">
 <meta property="og:image" content="https://chetanjon.github.io/chalant/assets/social-card.png">
-<meta property="og:url" content="https://chetanjon.github.io/chalant/">
+<meta property="og:url" content="https://www.chetanjonnalagadda.com/chalant">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://chetanjon.github.io/chalant/assets/social-card.png">
@@ -293,7 +293,7 @@
   </section>
 
   <section class="get">
-    <a class="button" href="https://github.com/chetanjon/chalant/releases/latest/download/Chalant.zip">Download for Mac</a>
+    <a class="button" id="get" href="Chalant.zip">Download for Mac</a>
     <div class="fine">apple silicon · macos 14+ · free</div>
     <div class="fine">unzip · drag chalant to applications · first open: system settings, privacy and security, open anyway</div>
   </section>
@@ -367,6 +367,13 @@
     "text amma: on my way",
     "play some rain",
   ];
+  // On the github.io origin there is no redirect layer, so the button
+  // falls back to the release asset directly. Under the portfolio
+  // domain, the relative href rides the rewrite and stays on-domain.
+  if (location.hostname.endsWith("github.io")) {
+    document.getElementById("get").href =
+      "https://github.com/chetanjon/chalant/releases/latest/download/Chalant.zip";
+  }
   const el = document.getElementById("verb");
   let i = 0;
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {

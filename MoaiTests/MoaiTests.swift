@@ -342,6 +342,15 @@ final class MoaiTests: XCTestCase {
         XCTAssertNil(ActionEngine.volumeIntent("this cafe is too loud for calls"))
     }
 
+    // MARK: Playing signal ships quiet (R128)
+
+    func testPlayingSignalDefaultsQuiet() {
+        // The rim is the signal (R75); a permanent animation must be
+        // chosen, not shipped. Both @AppStorage sites read this
+        // constant, so this also pins them together.
+        XCTAssertEqual(MusicController.playingSignalDefault, "quiet")
+    }
+
     // MARK: Transport articles and the tell doorway (R124)
 
     func testTransportFormsCarryArticles() {

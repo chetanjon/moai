@@ -51,7 +51,8 @@ struct SettingsPane: View {
     @AppStorage("idleEdgeOn") private var idleEdgeOn = true
     @AppStorage("accentMode") private var accentMode = "silver"
     @AppStorage("glanceMusic") private var glanceMusic = true
-    @AppStorage("playingSignal") private var playingSignal = "wave"
+    @AppStorage(MusicController.playingSignalKey) private var playingSignal
+        = MusicController.playingSignalDefault
     @AppStorage("glanceSession") private var glanceSession = true
     @AppStorage("glanceNextEvent") private var glanceNextEvent = true
     @AppStorage("glanceIdle") private var glanceIdle = "none"
@@ -181,7 +182,7 @@ struct SettingsPane: View {
                             ("Wave", "wave"), ("Quiet", "quiet"),
                         ])
                     }
-                    Text("Wave dances beside the notch; Quiet leaves only the breathing rim.")
+                    Text("Quiet leaves only the breathing rim, the default. Wave dances beside the notch for those who want it.")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.textHint)
                     divider

@@ -62,6 +62,14 @@ final class MusicController: ObservableObject {
         }
     }
 
+    /// The collapsed pill's playing signal. Quiet by default since
+    /// 1.0.87: the breathing rim is the signal (R75's ruling), and a
+    /// permanent animation is the loudest claim the closed pill can
+    /// make on a stranger's attention; the wave is one switch away.
+    /// Both @AppStorage sites share these so they can never diverge.
+    static let playingSignalKey = "playingSignal"
+    static let playingSignalDefault = "quiet"
+
     /// Published only when something meaningful changes (track, play
     /// state, volume, shuffle); position lives in the anchor so
     /// updates don't rebuild the whole row every tick.

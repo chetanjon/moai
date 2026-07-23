@@ -40,7 +40,7 @@ Unzip, drag Moai to Applications, open it. First open: macOS will ask once. Syst
 - Hold to talk or tap the mic; recognition is Apple standard dictation, on-device when the model is warm, Apple dictation service otherwise, the same path Notes and Messages use. Your music ducks while you speak.
 
 **Music**
-- Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, a small wave dances beside the notch (or nothing, in Quiet mode) and a breathing album-color rim carries the signal; expand for artwork, transport, and scrubbing. Wave, rim, and the session mark each have their own switch in Settings, so the closed pill can be exactly as bare as you like.
+- Whatever plays, anywhere: Spotify, Apple Music, YouTube in a browser, any app the system hears. While playing, the pill stays bare and a breathing album-color rim carries the signal; a small wave can dance beside the notch if you switch it on. Expand for artwork, transport, and scrubbing. Wave, rim, and the session mark each have their own switch in Settings, so the closed pill can be exactly as lively or as bare as you like.
 - With music and a session running together, the wave keeps the left wing and the session mark crosses to the right.
 - The opened island comes in two materials, ink or liquid glass, in Settings under Life. Closed, it is always ink; melting into the notch is its job.
 - On a notchless monitor the collapsed island shows nothing at rest; the top edge still opens it on hover. Two things count as a reason to exist and surface briefly: a passing toast (a timer finishing, an update landing) and an agent that needs your input.

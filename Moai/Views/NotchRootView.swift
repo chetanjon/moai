@@ -25,7 +25,8 @@ struct NotchRootView: View {
     @AppStorage("accentMode") private var accentMode = "silver"
     // What the collapsed glance may show, user-tunable in Settings.
     @AppStorage("glanceMusic") private var glanceMusic = true
-    @AppStorage("playingSignal") private var playingSignal = "wave"
+    @AppStorage(MusicController.playingSignalKey) private var playingSignal
+        = MusicController.playingSignalDefault
     @AppStorage("glanceSession") private var glanceSession = true
     @AppStorage("islandMaterial") private var islandMaterial = "ink"
     @AppStorage("glassClarity") private var glassClarity = "balanced"

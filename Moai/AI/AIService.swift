@@ -53,8 +53,9 @@ struct AIService {
         what's due / done with <reminder> / undo / focus <minutes> / \
         timer <minutes> / stopwatch / stop stopwatch / reset stopwatch / \
         stop focus / \
-        stop timer / rain / fire / cafe / \
+        stop timer / how much time left / rain / fire / cafe / \
         brown noise / stop noise / play / pause / next / previous / \
+        what's playing / volume up / volume down / volume <0-100> / \
         open <app or folder> / quit <app> / left half / right half / fill / \
         center / note: <text> / notes / find <words> / screenshot / \
         screen record / lock screen / dark mode / light mode / \
@@ -112,6 +113,7 @@ struct AIService {
     // guard instead.
     private static let canonicalCommands = [
         "what's next", "what's due", "what's new",
+        "what's playing", "how much time left",
         "stop focus", "stop timer",
         "stop stopwatch", "reset stopwatch", "stopwatch", "brown noise", "stop noise",
         "left half", "right half", "screen record", "lock screen",
@@ -124,7 +126,7 @@ struct AIService {
         "remind", "schedule", "cancel", "move", "done with",
         "focus", "timer", "open", "quit", "note", "find", "run",
         "text", "message", "imessage", "send", "join", "read",
-        "summarize", "explain", "translate", "describe",
+        "summarize", "explain", "translate", "describe", "volume",
     ]
 
     static func rescueParaphrase(_ reply: String) -> String {

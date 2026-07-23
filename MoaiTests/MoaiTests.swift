@@ -262,4 +262,83 @@ final class MoaiTests: XCTestCase {
         XCTAssertNil(courier.pending)
         XCTAssertTrue(answer.hasPrefix("No one called"), answer)
     }
+
+    // MARK: Session stops carry their articles (R123)
+
+    func testSessionStopsAcceptArticles() {
+        // "cancel the timer" once fell to the calendar branch and
+        // answered "No event today matching 'the timer'" over a
+        // live timer (dogfood-caught).
+        XCTAssertTrue(ActionEngine.timerStopForms.contains("cancel the timer"))
+        XCTAssertTrue(ActionEngine.timerStopForms.contains("stop my timer"))
+        XCTAssertTrue(ActionEngine.timerStopForms.contains("turn off the timer"))
+        XCTAssertTrue(ActionEngine.focusStopForms.contains("cancel the focus"))
+        XCTAssertTrue(ActionEngine.stopwatchResetForms.contains("cancel the stopwatch"))
+        // Bare "cancel" belongs to the running-things chain, not here.
+        XCTAssertFalse(ActionEngine.timerStopForms.contains("cancel"))
+    }
+
+    // MARK: State readback (the island answers for itself, R123)
+
+    func testReadbackFormsCoverNaturalAsks() {
+        XCTAssertTrue(ActionEngine.nowPlayingForms.contains("whats playing"))
+        XCTAssertTrue(ActionEngine.nowPlayingForms.contains("what song is this"))
+        XCTAssertTrue(ActionEngine.timeLeftForms.contains("how much time left"))
+        XCTAssertTrue(ActionEngine.timeLeftForms.contains("how long on the timer"))
+        // "what's on" stays the agenda's; never a music ask.
+        XCTAssertFalse(ActionEngine.nowPlayingForms.contains("what's on"))
+    }
+
+    func testNowPlayingLineFormats() {
+        XCTAssertEqual(
+            ActionEngine.nowPlayingLine(
+                track: "Midnight City", artist: "M83",
+                source: "Spotify", playing: true),
+            "Midnight City · M83, in Spotify."
+        )
+        XCTAssertEqual(
+            ActionEngine.nowPlayingLine(
+                track: "Midnight City", artist: "", source: "", playing: false),
+            "Paused: Midnight City."
+        )
+    }
+
+    func testTimeLeftLineNamesEveryRunningSession() {
+        XCTAssertEqual(
+            ActionEngine.timeLeftLine(timer: "4:59", focus: nil, stopwatch: nil),
+            "4:59 on the timer."
+        )
+        XCTAssertEqual(
+            ActionEngine.timeLeftLine(timer: "4:59", focus: "24:10", stopwatch: "0:08"),
+            "4:59 on the timer · 24:10 left in the focus · 0:08 on the stopwatch."
+        )
+        XCTAssertEqual(
+            ActionEngine.timeLeftLine(timer: nil, focus: nil, stopwatch: nil),
+            "No timer running."
+        )
+    }
+
+    // MARK: Volume intent (word-bounded, deliberate, R123)
+
+    func testVolumeIntentParsesDirectionsAndLevels() {
+        XCTAssertEqual(ActionEngine.volumeIntent("turn the volume down a bit"), .down)
+        XCTAssertEqual(ActionEngine.volumeIntent("volume up"), .up)
+        XCTAssertEqual(ActionEngine.volumeIntent("louder"), .up)
+        XCTAssertEqual(ActionEngine.volumeIntent("quieter"), .down)
+        XCTAssertEqual(ActionEngine.volumeIntent("turn it down"), .down)
+        XCTAssertEqual(ActionEngine.volumeIntent("volume 30"), .set(30))
+        XCTAssertEqual(ActionEngine.volumeIntent("set the volume to 70"), .set(70))
+        XCTAssertEqual(ActionEngine.volumeIntent("what's the volume"), .read)
+    }
+
+    func testVolumeIntentStaysDeliberate() {
+        // "update" contains "up"; word bounds must hold.
+        XCTAssertNil(ActionEngine.volumeIntent("update my podcast"))
+        // Ambience keeps "quiet" for itself.
+        XCTAssertNil(ActionEngine.volumeIntent("quiet"))
+        // Math stays with the model: no set-word, no bare-number grab.
+        XCTAssertNil(ActionEngine.volumeIntent("the volume of a cube is 3"))
+        // Chatter that merely mentions loudness stays freeform.
+        XCTAssertNil(ActionEngine.volumeIntent("this cafe is too loud for calls"))
+    }
 }

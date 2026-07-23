@@ -598,7 +598,10 @@ final class NotchViewModel: ObservableObject {
     func logVoice(_ heard: String, outcome: String) {
         var lines = UserDefaults.standard.stringArray(forKey: voiceLogKey) ?? []
         lines.append("heard \u{201C}\(heard)\u{201D} → \(outcome)")
-        if lines.count > 10 { lines.removeFirst(lines.count - 10) }
+        // 40 lines: a 10-line trail rotated evidence away mid-sweep
+        // twice in one day (R114, R122); reading it is the first move
+        // on any voice report, so it has to hold a whole session.
+        if lines.count > 40 { lines.removeFirst(lines.count - 40) }
         UserDefaults.standard.set(lines, forKey: voiceLogKey)
     }
 

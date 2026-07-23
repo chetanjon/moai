@@ -176,12 +176,17 @@ final class ActionEngine {
             return notes ?? "Couldn't reach the release notes. Check the network, then ask again."
         }
 
-        // Stops
-        if ["stop focus", "end focus"].contains(lower) {
+        // Stops. Articles welcome: "cancel the timer" once fell
+        // through to the calendar branch and answered about events
+        // while the timer kept ticking (dogfood-caught). Honest when
+        // idle, too; "Timer off." over no timer was a white lie.
+        if Self.focusStopForms.contains(lower) {
+            guard model.focus.isActive else { return "No focus running." }
             model.focus.stop()
             return "Focus off."
         }
-        if ["stop timer", "cancel timer"].contains(lower) {
+        if Self.timerStopForms.contains(lower) {
+            guard model.timer.isActive else { return "No timer running." }
             model.timer.stop()
             return "Timer off."
         }
@@ -201,8 +206,7 @@ final class ActionEngine {
             }
             return "Stopped at \(model.stopwatch.pause()). It holds; say stopwatch to roll on, reset stopwatch to clear."
         }
-        if ["reset stopwatch", "reset the stopwatch", "clear stopwatch",
-            "clear the stopwatch", "stopwatch reset"].contains(watch) {
+        if Self.stopwatchResetForms.contains(watch) {
             guard model.stopwatch.isActive else { return "Nothing on the watch." }
             model.stopwatch.reset()
             return "Cleared."
@@ -217,6 +221,24 @@ final class ActionEngine {
             return resuming
                 ? "Rolling again from \(model.stopwatch.display)."
                 : "Stopwatch running. Say stop stopwatch to hold it."
+        }
+
+        // The island answers for its own state. Both of these once
+        // went to the void model and shrugged while the answer sat in
+        // memory (dogfood-caught). Exact forms, and they must run
+        // before the timer/focus creators: "how long on the timer"
+        // contains "timer" and would start a fresh one.
+        if Self.nowPlayingForms.contains(lower) {
+            guard let now = model.music.nowPlaying else { return "Nothing's playing." }
+            return Self.nowPlayingLine(
+                track: now.track, artist: now.artist,
+                source: now.source.displayName, playing: now.isPlaying)
+        }
+        if Self.timeLeftForms.contains(lower) {
+            return Self.timeLeftLine(
+                timer: model.timer.isActive ? model.timer.display : nil,
+                focus: model.focus.isActive ? Self.clock(model.focus.remaining) : nil,
+                stopwatch: model.stopwatch.isActive ? model.stopwatch.display : nil)
         }
 
         // Reminders you already have: list them, or tick one off. Run
@@ -541,6 +563,31 @@ final class ActionEngine {
             }
         }
 
+        // Volume: the same knob the row's slider turns, by voice. The
+        // player's own volume for scriptable sources, the Mac's
+        // otherwise ("turn the volume down a bit" once went to the
+        // model and shrugged, dogfood-caught). Sits after the
+        // reminder prefixes so "remind me to turn the volume down at
+        // 9" stays a reminder.
+        if let intent = Self.volumeIntent(lower) {
+            let current = model.music.nowPlaying?.volume ?? SystemVolume.level() ?? 50
+            let appName = model.music.nowPlaying?.source.scriptable?.rawValue
+            let target: Double
+            switch intent {
+            case .up: target = current + 10
+            case .down: target = current - 10
+            case .set(let level): target = Double(level)
+            case .read: return Self.volumeLine(level: current, source: appName)
+            }
+            let clamped = max(0, min(100, target))
+            if model.music.nowPlaying != nil {
+                model.music.setVolume(clamped)
+            } else {
+                SystemVolume.set(clamped)
+            }
+            return Self.volumeLine(level: clamped, source: appName)
+        }
+
         // Music transport, explicit verbs
         if ["play", "play music", "resume"].contains(lower) {
             model.music.play()
@@ -697,7 +744,9 @@ final class ActionEngine {
     what's next · agenda · what's due · done with the thing · join
     cancel my 3pm · move standup to 4 · undo
     focus 25 · timer 10 · stopwatch · stop focus · rain · fire · cafe · quiet
-    play · pause · next · open figma · quit slack
+    how much time left · cancel the timer
+    play · pause · next · what's playing · volume up · volume down
+    open figma · quit slack
     text amma: on my way, then say send to send it
     left half · right half · fill · center
     note: an idea · notes · find parcel · read my screen
@@ -705,6 +754,114 @@ final class ActionEngine {
     what's new reads the latest release notes
     Anything else is a question; the model answers it.
     """
+
+    // MARK: - State readback
+
+    /// Session stops with their articles, matched exactly.
+    static let focusStopForms: Set<String> = [
+        "stop focus", "end focus", "cancel focus",
+        "stop the focus", "end the focus", "cancel the focus",
+        "stop my focus", "end my focus", "cancel my focus",
+    ]
+
+    static let timerStopForms: Set<String> = [
+        "stop timer", "cancel timer", "end timer", "kill timer",
+        "stop the timer", "cancel the timer", "end the timer",
+        "kill the timer", "turn off the timer", "turn off timer",
+        "stop my timer", "cancel my timer", "end my timer",
+    ]
+
+    static let stopwatchResetForms: Set<String> = [
+        "reset stopwatch", "reset the stopwatch", "clear stopwatch",
+        "clear the stopwatch", "stopwatch reset", "cancel stopwatch",
+        "cancel the stopwatch", "cancel my stopwatch",
+    ]
+
+    /// Asks about what is audible right now. Exact forms; "what's on"
+    /// stays the agenda's.
+    static let nowPlayingForms: Set<String> = [
+        "what's playing", "whats playing", "what is playing",
+        "what's this song", "whats this song", "what song is this",
+        "what's the song", "whats the song", "now playing",
+        "what am i listening to", "what is this song",
+    ]
+
+    /// Asks about running sessions. Exact forms, matched before the
+    /// timer/focus creators so none of them can start anything.
+    static let timeLeftForms: Set<String> = [
+        "how much time left", "how much time is left", "how much longer",
+        "how long left", "how long is left", "time left", "time remaining",
+        "how much left", "how long on the timer", "how much time on the timer",
+        "time left on the timer", "how long left on the timer",
+        "how's the timer", "hows the timer", "check the timer", "check timer",
+    ]
+
+    static func nowPlayingLine(
+        track: String, artist: String, source: String, playing: Bool
+    ) -> String {
+        var line = track.isEmpty ? "Something unnamed" : track
+        if !artist.isEmpty { line += " · " + artist }
+        if !source.isEmpty { line += ", in " + source }
+        return playing ? line + "." : "Paused: " + line + "."
+    }
+
+    static func timeLeftLine(
+        timer: String?, focus: String?, stopwatch: String?
+    ) -> String {
+        var parts: [String] = []
+        if let timer { parts.append("\(timer) on the timer") }
+        if let focus { parts.append("\(focus) left in the focus") }
+        if let stopwatch { parts.append("\(stopwatch) on the stopwatch") }
+        guard !parts.isEmpty else { return "No timer running." }
+        return parts.joined(separator: " · ") + "."
+    }
+
+    static func clock(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    enum VolumeIntent: Equatable {
+        case up
+        case down
+        case set(Int)
+        case read
+    }
+
+    /// Word-bounded so "update" never reads as up, and the read form
+    /// is exact-only so "the volume of a cube" still goes to the
+    /// model. Bare direction words ("louder") are exact too; ambience
+    /// keeps "quiet" for itself.
+    static func volumeIntent(_ lower: String) -> VolumeIntent? {
+        let words = Set(
+            lower.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                .map(String.init)
+        )
+        if words.contains("volume") {
+            if !words.isDisjoint(with: ["up", "raise", "louder", "higher",
+                                        "increase", "boost"]) { return .up }
+            if !words.isDisjoint(with: ["down", "lower", "quieter", "softer",
+                                        "decrease", "reduce"]) { return .down }
+            if let number = Self.firstNumber(in: lower),
+               (0...100).contains(number),
+               lower.hasPrefix("volume")
+                || !words.isDisjoint(with: ["set", "put", "make"]) {
+                return .set(number)
+            }
+        }
+        if ["volume", "what's the volume", "whats the volume", "volume level",
+            "current volume", "how loud", "how loud is it"].contains(lower) {
+            return .read
+        }
+        if ["louder", "turn it up"].contains(lower) { return .up }
+        if ["quieter", "softer", "turn it down"].contains(lower) { return .down }
+        return nil
+    }
+
+    static func volumeLine(level: Double, source: String?) -> String {
+        let value = Int(level.rounded())
+        if let source { return "\(source) at \(value)." }
+        return "Volume \(value)."
+    }
 
     // MARK: - Parsing helpers
 

@@ -111,14 +111,8 @@
 
   .hero { padding: 96px 0 72px; }
 
-  .wordmark {
-    font-family: ui-rounded, "SF Pro Rounded", system-ui, var(--sans);
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    text-transform: lowercase;
-    color: var(--mist);
-  }
+  .wordmark { color: var(--mist); line-height: 0; }
+  .wordmark svg { height: 26px; width: auto; display: block; margin: 0 auto; }
 
   h1 {
     margin-top: 26px;
@@ -280,7 +274,22 @@
 
 <main>
   <section class="hero">
-    <div class="wordmark">chalant</div>
+    <div class="wordmark">
+      <svg viewBox="255 18 812 176" fill="none" stroke="currentColor" stroke-width="26"
+           stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="chalant">
+        <path d="M 298.4 84.6 A 50 50 0 1 0 298.4 155.4"/>
+        <path d="M 369 40 L 369 170"/>
+        <path d="M 369 104 A 34 34 0 0 1 437 104 L 437 170"/>
+        <circle cx="545" cy="120" r="50"/>
+        <path d="M 595 70 L 595 170"/>
+        <path d="M 653 40 L 653 170"/>
+        <circle cx="761" cy="120" r="50"/>
+        <path d="M 811 70 L 811 170"/>
+        <path d="M 869 170 L 869 104 A 34 34 0 0 1 937 104 L 937 170"/>
+        <path d="M 1019 44 L 1019 140 A 30 30 0 0 0 1049 170"/>
+        <path d="M 995 70 L 1047 70"/>
+      </svg>
+    </div>
     <h1>The dynamic island<br>your Mac was missing.</h1>
     <p class="sub">
       Talk to it or type at it. Calendar, focus, music, windows, files.

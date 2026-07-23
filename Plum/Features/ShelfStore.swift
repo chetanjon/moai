@@ -119,7 +119,7 @@ final class ShelfStore: ObservableObject {
         pasteboard.writeObjects([item.url as NSURL])
     }
 
-    /// Cheap check for the sparkles affordance. The old path ran the
+    /// Cheap check for the ask-mark affordance. The old path ran the
     /// full extraction (whole file read, PDF parse) for every row on
     /// every render; this reads nothing but the file extension.
     func canExtractText(_ item: Item) -> Bool {

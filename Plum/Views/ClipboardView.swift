@@ -107,7 +107,7 @@ private struct ClipRow: View {
                 }
                 // Text can go to the answer surface; an image can't.
                 if let text = clip.text {
-                    IconActionButton(symbol: "sparkles", tint: accent) {
+                    IconActionButton(symbol: "plum.mark", tint: accent) {
                         model.askAbout(name: "clipboard", text: text)
                     }
                 }

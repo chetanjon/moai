@@ -96,7 +96,7 @@ private struct NoteRow: View {
                     pasteboard.clearContents()
                     pasteboard.setString(note.text, forType: .string)
                 }
-                IconActionButton(symbol: "sparkles", tint: accent) {
+                IconActionButton(symbol: "plum.mark", tint: accent) {
                     model.askAbout(name: "note", text: note.text)
                 }
                 IconActionButton(symbol: "xmark", dim: true) {

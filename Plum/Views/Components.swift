@@ -348,6 +348,49 @@ struct PressableStyle: ButtonStyle {
 /// The universal small glyph button: a comfortable 22pt hit target
 /// around the icon, a tint lift and faint halo on hover, and a press
 /// sink. Every bare-glyph control in the app routes through this.
+
+/// The house mark: a small plum, round body and a curved stem,
+/// drawn in whatever foreground style the context sets. It replaces
+/// the borrowed "sparkles" symbol, which read as another
+/// assistant's star (user, 2026-07-23).
+struct PlumMarkShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let d = min(rect.width, rect.height)
+        let cx = rect.midX
+        p.addEllipse(in: CGRect(
+            x: cx - d * 0.40, y: rect.minY + d * 0.28,
+            width: d * 0.80, height: d * 0.72
+        ))
+        var stem = Path()
+        stem.move(to: CGPoint(x: cx + d * 0.02, y: rect.minY + d * 0.32))
+        stem.addQuadCurve(
+            to: CGPoint(x: cx + d * 0.32, y: rect.minY + d * 0.03),
+            control: CGPoint(x: cx + d * 0.05, y: rect.minY + d * 0.05)
+        )
+        p.addPath(stem.strokedPath(StrokeStyle(lineWidth: d * 0.12, lineCap: .round)))
+        return p
+    }
+}
+
+/// An SF Symbol by name, or the plum mark for "plum.mark", sized to
+/// sit beside the symbol font it replaces.
+struct GlyphImage: View {
+    let symbol: String
+    var scale: Theme.Fonts.IconScale = .s
+    var weight: Font.Weight = .semibold
+
+    var body: some View {
+        if symbol == "plum.mark" {
+            PlumMarkShape()
+                .frame(width: scale.rawValue + 2, height: scale.rawValue + 2)
+        } else {
+            Image(systemName: symbol)
+                .font(Theme.Fonts.icon(scale, weight: weight))
+        }
+    }
+}
+
 struct HoverGlyphButton: View {
     let symbol: String
     var scale: Theme.Fonts.IconScale = .s
@@ -359,8 +402,7 @@ struct HoverGlyphButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(Theme.Fonts.icon(scale, weight: weight))
+            GlyphImage(symbol: symbol, scale: scale, weight: weight)
                 .foregroundStyle(hovered ? lifted : tint)
                 .frame(minWidth: 22, minHeight: 22)
                 .background(Circle().fill(Color.white.opacity(hovered ? 0.07 : 0)))

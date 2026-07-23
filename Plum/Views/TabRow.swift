@@ -28,7 +28,7 @@ struct Switcher: View {
     static func symbol(_ tab: NotchViewModel.Tab) -> String {
         switch tab {
         case .today: return "calendar"
-        case .ask: return "sparkles"
+        case .ask: return "plum.mark"
         case .links: return "square.grid.2x2"
         case .clipboard: return "doc.on.clipboard"
         case .shelf: return "tray.full"
@@ -70,8 +70,7 @@ private struct SwitcherItem: View {
                 // A size up and a tier brighter than they were: the
                 // tools read at a glance now (user call, 2026-07-22,
                 // "looks too small").
-                Image(systemName: Switcher.symbol(tab))
-                    .font(Theme.Fonts.icon(.m))
+                GlyphImage(symbol: Switcher.symbol(tab), scale: .m)
                 if on {
                     Text(Switcher.label(tab))
                         .font(Theme.Fonts.bodyEmphasis)

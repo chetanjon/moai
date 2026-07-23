@@ -67,7 +67,7 @@ private struct ShelfRow: View {
                 }
                 .help("AirDrop")
                 if shelf.canExtractText(item) {
-                    IconActionButton(symbol: "sparkles", tint: accent) {
+                    IconActionButton(symbol: "plum.mark", tint: accent) {
                         guard let text = shelf.extractText(item) else { return }
                         model.askAbout(name: item.name, text: text)
                     }

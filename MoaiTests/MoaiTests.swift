@@ -356,6 +356,22 @@ final class MoaiTests: XCTestCase {
         XCTAssertFalse(ActionEngine.pauseForms.contains("stop noise"))
     }
 
+    // MARK: Collapsed glance discipline (R125)
+
+    func testCollapsedGlanceOnlyInterruptsForNeedsInput() {
+        // "Claude Code replied" floating beside the notch on every
+        // turn end resized the pill (user: "it should stay the same
+        // size"). Only a thing that needs the user may interrupt.
+        let store = ActivityStore()
+        store.push(id: "a", title: "Working", detail: nil, state: .working)
+        store.push(id: "b", title: "Replied", detail: nil, state: .done)
+        XCTAssertNil(store.glanceActivity)
+        store.push(id: "c", title: "Wants you", detail: nil, state: .needsInput)
+        XCTAssertEqual(store.glanceActivity?.id, "c")
+        store.clear(id: "c")
+        XCTAssertNil(store.glanceActivity)
+    }
+
     func testTextingPrefixTellGuard() {
         // "tell amma i am on my way" is how people say it; "tell me"
         // stays a question, and the space keeps "tell melissa" a

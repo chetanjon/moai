@@ -56,7 +56,7 @@ First open: macOS will ask once. System Settings, Privacy and Security, Open Any
 **Live status** (the open door)
 - Anything on your Mac can put a status pill on the island: `curl localhost:4242/activity -d '{"id":"deploy","title":"Deploying","state":"working"}'`. States: `working`, `needs-input`, `done`, `failed`, `clear`; `GET /activities` lists, `DELETE /activity/<id>` clears. Loopback only, never leaves the machine.
 - `scripts/moai` wraps it for humans and hooks: `moai working "Deploying"`, `moai needs-input "Claude wants you"`, `moai done "Build finished"`, `moai clear`. Copy it into your PATH if you like it.
-- Made for the things that have no home: Claude Code hooks, build scripts, deploys, renders, long downloads. Needs-input leads the island's glance and wears the accent; finished things fade on their own.
+- Made for the things that have no home: Claude Code hooks, build scripts, deploys, renders, long downloads. Only needs-input interrupts the closed pill (accent glyph, title); working and finished states wait in the open island, and finished things fade on their own.
 - Claude Code wears it as a full lifecycle, four hooks sharing one id in `~/.claude/settings.json` (merge alongside any hooks you already run): a submitted prompt marks it working, a notification means it wants you, Stop says replied and fades on its own, and SessionEnd takes the pill down so an ended session never leaves "wants you" on the glass.
 
 ```json

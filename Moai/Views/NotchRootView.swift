@@ -171,7 +171,7 @@ struct NotchRootView: View {
     private var monitorTucked: Bool {
         guard !model.hasPhysicalNotch, model.state == .collapsed else { return false }
         if model.glanceToast != nil { return false }
-        if activities.glanceActivity?.state == .needsInput { return false }
+        if activities.glanceActivity != nil { return false }
         return true
     }
 

@@ -78,9 +78,13 @@ final class ActivityStore: ObservableObject {
         activities.map(\.id).forEach { clear(id: $0) }
     }
 
-    /// What the collapsed island should say: the most urgent thing.
+    /// What the collapsed island should interrupt for: only a thing
+    /// that needs the user. Working and finished states stay off the
+    /// closed pill entirely; it must not grow a floating title on
+    /// every turn end (user, 2026-07-22, "it should stay the same
+    /// size"). The open island shows the whole list.
     var glanceActivity: Activity? {
-        activities.first
+        activities.first { $0.state == .needsInput }
     }
 
     private func sort() {

@@ -17,8 +17,8 @@ jobs:
       - name: Run unit tests
         run: >
           xcodebuild test
-          -project Moai.xcodeproj
-          -scheme Moai
+          -project Cove.xcodeproj
+          -scheme Cove
           -destination 'platform=macOS'
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGN_IDENTITY=""

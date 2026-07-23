@@ -99,6 +99,37 @@ final class ActionEngine {
             return model.voiceLogRendered
         }
 
+        // The screen, read into context: one shot of the front
+        // window, on-device OCR, and the words ride the same attach
+        // pipeline as a dropped file. Ask the next question against
+        // it. The heavy grant is asked in context, never awaited.
+        if ["read my screen", "read the screen", "read screen",
+            "what's on my screen", "whats on my screen",
+            "look at my screen", "ask about my screen"].contains(lower) {
+            guard ScreenReader.preflight() else {
+                ScreenReader.requestGrant()
+                return "macOS is asking about Screen Recording. Allow it (a relaunch may be needed), then say it again. The reading stays on this Mac."
+            }
+            model.isWorking = true
+            let outcome = await ScreenReader.readFrontWindow()
+            model.isWorking = false
+            switch outcome {
+            case .text(let app, let words):
+                model.pendingContext = (
+                    name: "\(app)'s window",
+                    text: String(words.prefix(6000))
+                )
+                let count = words.split(separator: "\n").count
+                return "Read \(count) lines from \(app). Ask away; the words stay on this Mac."
+            case .empty(let app):
+                return "\(app)'s window came back wordless. Text-light windows read as pictures."
+            case .noWindow:
+                return "No readable window up front."
+            case .denied, .needsGrant:
+                return "Screen Recording isn't allowed yet. System Settings, Privacy and Security, Screen Recording, then relaunch Moai."
+            }
+        }
+
         // One word into the meeting: the Today row chip's spoken twin.
         if ["join", "join meeting", "join the meeting", "join my meeting",
             "join call", "join the call", "join my call"].contains(lower) {
@@ -643,7 +674,7 @@ final class ActionEngine {
     play · pause · next · open figma · quit slack
     text amma: on my way, then say send to send it
     left half · right half · fill · center
-    note: an idea · notes · find parcel
+    note: an idea · notes · find parcel · read my screen
     screenshot · screen record · lock screen · dark mode · voice log
     what's new reads the latest release notes
     Anything else is a question; the model answers it.

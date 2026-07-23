@@ -349,30 +349,34 @@ struct PressableStyle: ButtonStyle {
 /// around the icon, a tint lift and faint halo on hover, and a press
 /// sink. Every bare-glyph control in the app routes through this.
 
-/// The house mark: the island itself, distilled to one color. A
-/// soft capsule with a warm point held inside; the same silhouette
-/// the app icon renders in glass, drawn here as a single-color glyph
-/// so it can live in a menu bar or on a button. It matches the icon,
-/// not a letter.
+/// The house mark: the island silhouette itself. Flat across the
+/// top the way the pill meets the screen's edge, rounded below into
+/// a soft belly. A downward tab, not a horizontal capsule; no circle
+/// anywhere, so it can never be read as a toggle switch. This is the
+/// product's own shape, distilled.
 struct ChalantMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
         let d = min(rect.width, rect.height)
-        let capsuleW = d * 0.82
-        let capsuleH = d * 0.40
-        let body = CGRect(
-            x: rect.midX - capsuleW / 2,
-            y: rect.midY - capsuleH / 2,
-            width: capsuleW, height: capsuleH
-        )
-        var mark = Path(roundedRect: body, cornerRadius: capsuleH / 2)
-            .strokedPath(StrokeStyle(lineWidth: d * 0.11, lineCap: .round))
-        let dotR = d * 0.105
-        let dotX = body.maxX - capsuleH * 0.7
-        mark.addEllipse(in: CGRect(
-            x: dotX - dotR, y: rect.midY - dotR,
-            width: dotR * 2, height: dotR * 2
-        ))
-        return mark
+        let w = d * 0.78
+        let x0 = rect.midX - w / 2
+        let x1 = rect.midX + w / 2
+        let top = rect.midY - d * 0.30
+        let shoulder = rect.midY + d * 0.02
+        let belly = rect.midY + d * 0.40
+        let corner = d * 0.09
+        var p = Path()
+        p.move(to: CGPoint(x: x0, y: top + corner))
+        p.addQuadCurve(to: CGPoint(x: x0 + corner, y: top),
+                       control: CGPoint(x: x0, y: top))
+        p.addLine(to: CGPoint(x: x1 - corner, y: top))
+        p.addQuadCurve(to: CGPoint(x: x1, y: top + corner),
+                       control: CGPoint(x: x1, y: top))
+        p.addLine(to: CGPoint(x: x1, y: shoulder))
+        p.addCurve(to: CGPoint(x: x0, y: shoulder),
+                   control1: CGPoint(x: x1, y: belly),
+                   control2: CGPoint(x: x0, y: belly))
+        p.closeSubpath()
+        return p
     }
 }
 

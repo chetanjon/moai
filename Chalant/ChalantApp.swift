@@ -48,21 +48,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Tiny menu bar item so the agent app can be quit
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        // The house mark, drawn by hand: the island capsule with its
-        // ember, the icon's silhouette in one color. Matches the app
-        // icon, not a letter.
+        // The house mark, drawn by hand: the island silhouette. Flat
+        // across the top like the pill meeting the screen edge, a soft
+        // rounded belly below. A downward tab with no circle in it, so
+        // it never reads as a toggle beside the system ones.
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            let body = NSRect(x: 2.4, y: 6.1, width: 13.2, height: 5.8)
-            let capsule = NSBezierPath(roundedRect: body, xRadius: 2.9, yRadius: 2.9)
-            capsule.lineWidth = 1.6
-            NSColor.black.setStroke()
-            capsule.stroke()
-            let dr = 1.7
-            let dot = NSBezierPath(ovalIn: NSRect(
-                x: body.maxX - 4.0 - dr, y: 9.0 - dr, width: dr * 2, height: dr * 2
-            ))
+            // y is up: the flat top sits high, the belly hangs below.
+            let x0 = 4.2, x1 = 13.8, topY = 12.6, shoulderY = 8.8
+            let corner = 1.5
+            let p = NSBezierPath()
+            p.move(to: NSPoint(x: x0, y: topY - corner))
+            p.curve(to: NSPoint(x: x0 + corner, y: topY),
+                    controlPoint1: NSPoint(x: x0, y: topY),
+                    controlPoint2: NSPoint(x: x0, y: topY))
+            p.line(to: NSPoint(x: x1 - corner, y: topY))
+            p.curve(to: NSPoint(x: x1, y: topY - corner),
+                    controlPoint1: NSPoint(x: x1, y: topY),
+                    controlPoint2: NSPoint(x: x1, y: topY))
+            p.line(to: NSPoint(x: x1, y: shoulderY))
+            p.curve(to: NSPoint(x: x0, y: shoulderY),
+                    controlPoint1: NSPoint(x: x1, y: 3.4),
+                    controlPoint2: NSPoint(x: x0, y: 3.4))
+            p.close()
             NSColor.black.setFill()
-            dot.fill()
+            p.fill()
             return true
         }
         icon.isTemplate = true

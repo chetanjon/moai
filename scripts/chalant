@@ -1,0 +1,41 @@
+#!/bin/bash
+# The open door, one word at a time. Talks to the Chalant island's
+# localhost activity API (see README, Live status).
+#
+#   chalant working  "Deploying api"        [id]
+#   chalant needs-input "Claude wants you"  [id]
+#   chalant done     "Build finished"       [id]
+#   chalant failed   "Tests broke"          [id]
+#   chalant clear    [id]
+#   chalant list
+#
+# The id defaults to "cli"; give one to run several statuses at once.
+set -euo pipefail
+PORT="${CHALANT_PORT:-4242}"
+BASE="http://localhost:$PORT"
+
+case "${1:-}" in
+  working|needs-input|done|failed)
+    STATE="$1"
+    TITLE="${2:?usage: chalant $1 \"title\" [id]}"
+    ID="${3:-cli}"
+    # Escape backslashes and quotes so a title with either still forms
+    # valid JSON instead of a silently-dropped 400.
+    esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+    curl -sf "$BASE/activity" -d "{\"id\":\"$(esc "$ID")\",\"title\":\"$(esc "$TITLE")\",\"state\":\"$STATE\"}" >/dev/null
+    echo "on the island: [$STATE] $TITLE"
+    ;;
+  clear)
+    ID="${2:-cli}"
+    curl -sf -X DELETE "$BASE/activity/$ID" >/dev/null
+    echo "cleared: $ID"
+    ;;
+  list)
+    curl -sf "$BASE/activities"
+    echo
+    ;;
+  *)
+    sed -n '2,13p' "$0"
+    exit 1
+    ;;
+esac

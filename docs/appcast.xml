@@ -1,14 +1,14 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>Plum</title>
+        <title>Chalant</title>
         <item>
-            <title>1.1.10</title>
-            <pubDate>Thu, 23 Jul 2026 02:11:03 -0700</pubDate>
-            <sparkle:version>98</sparkle:version>
-            <sparkle:shortVersionString>1.1.10</sparkle:shortVersionString>
+            <title>1.2.0</title>
+            <pubDate>Thu, 23 Jul 2026 14:04:59 -0700</pubDate>
+            <sparkle:version>99</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/chetanjon/plum/releases/download/v1.1.10/Plum-1.1.10.zip" length="16398761" type="application/octet-stream" sparkle:edSignature="jENVAgY6xOkJUkxVA4hz6dTb2703ZN9kiXMtg35I0DK596fXEjojDA8q3hG8mfNPpm88xCUZFvG4R5Zt/ePPBg=="/>
+            <enclosure url="https://github.com/chetanjon/chalant/releases/download/v1.2.0/Chalant-1.2.0.zip" length="16402033" type="application/octet-stream" sparkle:edSignature="JfQA0vSOWt96B7U/WIbfHfbAO5ePipYxdjUFPRRGa4Z8xNr58bX1GDGmEyDMC0+NNcGxMWeDxZ1Q4yX6bBstDg=="/>
         </item>
     </channel>
 </rss>

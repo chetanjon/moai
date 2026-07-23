@@ -372,29 +372,32 @@ private func roundedQuad(_ pts: [CGPoint], radii: [CGFloat]) -> Path {
     return path
 }
 
-/// The house mark: the little watcher (brand v0.3). A wide rounded
-/// bar floats above a crisp tapered bucket with one low eye; "it
-/// watches so you don't have to." Geometry in units of `u`, anchored
-/// at the bar's top edge, identical to the app icon and the menu bar
-/// glyph. Even-odd fill keeps the eye open.
+/// The house mark: the little watcher (brand v0.3), reproduced from
+/// the brand SVG in its own 512 space and mapped into `rect`. A wide
+/// bar above a body that flares from a narrow top to a wide base
+/// (sharp top corners, rounded bottom), with one low eye. "It watches
+/// so you don't have to." Even-odd fill keeps the eye open. Identical
+/// geometry to the app icon and the menu bar glyph.
 struct ChalantMarkShape: Shape {
     func path(in rect: CGRect) -> Path {
+        // Emblem bbox in 512 space is 264 x 272, centered at (256,256).
         let d = min(rect.width, rect.height)
-        let u = 0.9 * d / 0.52
-        let cx = rect.midX
-        let top = rect.midY - 0.26 * u
+        let s = 0.94 * d / 272
+        func P(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.midX + (x - 256) * s, y: rect.midY + (y - 256) * s)
+        }
         var p = Path()
+        let bar = P(148, 120)
         p.addRoundedRect(
-            in: CGRect(x: cx - 0.22 * u, y: top, width: 0.44 * u, height: 0.11 * u),
-            cornerSize: CGSize(width: 0.055 * u, height: 0.055 * u)
+            in: CGRect(x: bar.x, y: bar.y, width: 216 * s, height: 68 * s),
+            cornerSize: CGSize(width: 34 * s, height: 34 * s)
         )
-        let bt = top + 0.18 * u, bb = top + 0.52 * u
-        p.addPath(roundedQuad([
-            CGPoint(x: cx - 0.26 * u, y: bt), CGPoint(x: cx + 0.26 * u, y: bt),
-            CGPoint(x: cx + 0.19 * u, y: bb), CGPoint(x: cx - 0.19 * u, y: bb),
-        ], radii: [0.035 * u, 0.035 * u, 0.06 * u, 0.06 * u]))
-        let er = 0.062 * u
-        p.addEllipse(in: CGRect(x: cx - er, y: top + 0.405 * u - er, width: er * 2, height: er * 2))
+        p.addPath(roundedQuad(
+            [P(172, 202), P(340, 202), P(387.95, 392), P(124.05, 392)],
+            radii: [0, 0, 20 * s, 20 * s]
+        ))
+        let eye = P(256, 330), er = 28 * s
+        p.addEllipse(in: CGRect(x: eye.x - er, y: eye.y - er, width: er * 2, height: er * 2))
         return p
     }
 }

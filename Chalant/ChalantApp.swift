@@ -53,37 +53,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // through. Even-odd fill keeps the eye open. Matches the app
         // icon exactly; no capsule, so it can't read as a toggle.
         let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            // y up: the bar sits high (topY), the bucket hangs below.
-            // Same geometry (units of u) as the app icon and in-app mark.
-            let u = 0.9 * 18.0 / 0.52, cx = 9.0, topY = 9.0 + 0.26 * u
+            // The brand-SVG emblem (512 space) mapped into 18pt, y
+            // flipped (AppKit is y-up): the bar sits high, the flared
+            // body hangs below, eye low. Same geometry as the app icon.
+            let s = 15.6 / 272.0
+            func P(_ x: Double, _ y: Double) -> NSPoint {
+                NSPoint(x: 9.0 + (x - 256) * s, y: 9.0 + (256 - y) * s)
+            }
             let path = NSBezierPath()
             path.windingRule = .evenOdd
+            let bar0 = P(148, 188), bar1 = P(364, 120)  // flipped: bottom-left, top-right
             path.appendRoundedRect(
-                NSRect(x: cx - 0.22 * u, y: topY - 0.11 * u, width: 0.44 * u, height: 0.11 * u),
-                xRadius: 0.055 * u, yRadius: 0.055 * u
+                NSRect(x: bar0.x, y: bar0.y, width: bar1.x - bar0.x, height: bar1.y - bar0.y),
+                xRadius: 34 * s, yRadius: 34 * s
             )
-            let bt = topY - 0.18 * u, bb = topY - 0.52 * u
-            let corners = [
-                (cx - 0.26 * u, bt), (cx + 0.26 * u, bt),
-                (cx + 0.19 * u, bb), (cx - 0.19 * u, bb),
-            ]
-            let radii = [0.035 * u, 0.035 * u, 0.06 * u, 0.06 * u]
+            let corners = [P(172, 202), P(340, 202), P(387.95, 392), P(124.05, 392)]
+            let radii = [0.0, 0.0, 20 * s, 20 * s]
             for i in 0..<4 {
                 let cur = corners[i], prev = corners[(i + 3) % 4], next = corners[(i + 1) % 4]
-                func unit(_ f: (Double, Double), _ t: (Double, Double)) -> (Double, Double) {
-                    let dx = t.0 - f.0, dy = t.1 - f.1, L = max((dx * dx + dy * dy).squareRoot(), 0.0001)
+                let r = radii[i]
+                if r <= 0 {
+                    if i == 0 { path.move(to: cur) } else { path.line(to: cur) }
+                    continue
+                }
+                func unit(_ f: NSPoint, _ t: NSPoint) -> (Double, Double) {
+                    let dx = t.x - f.x, dy = t.y - f.y, L = max((dx * dx + dy * dy).squareRoot(), 0.0001)
                     return (dx / L, dy / L)
                 }
-                let up = unit(cur, prev), un = unit(cur, next), r = radii[i]
-                let p1 = NSPoint(x: cur.0 + up.0 * r, y: cur.1 + up.1 * r)
-                let p2 = NSPoint(x: cur.0 + un.0 * r, y: cur.1 + un.1 * r)
-                let ctl = NSPoint(x: cur.0, y: cur.1)
-                if i == 0 { path.move(to: p1) } else { path.line(to: p1) }
-                path.curve(to: p2, controlPoint1: ctl, controlPoint2: ctl)
+                let up = unit(cur, prev), un = unit(cur, next)
+                let p1 = NSPoint(x: cur.x + up.0 * r, y: cur.y + up.1 * r)
+                let p2 = NSPoint(x: cur.x + un.0 * r, y: cur.y + un.1 * r)
+                path.line(to: p1)
+                path.curve(to: p2, controlPoint1: cur, controlPoint2: cur)
             }
             path.close()
-            let er = 0.062 * u, ecy = topY - 0.405 * u
-            path.appendOval(in: NSRect(x: cx - er, y: ecy - er, width: er * 2, height: er * 2))
+            let eye = P(256, 330), er = 28 * s
+            path.appendOval(in: NSRect(x: eye.x - er, y: eye.y - er, width: er * 2, height: er * 2))
             NSColor.black.setFill()
             path.fill()
             return true

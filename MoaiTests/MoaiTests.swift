@@ -164,4 +164,102 @@ final class MoaiTests: XCTestCase {
         timer.remaining = 65 * 60 + 3
         XCTAssertEqual(timer.display, "65:03")
     }
+
+    // MARK: Send consent (the outward-message gate, R105's wound)
+
+    func testSendVerdictFiresOnAnyUnnegatedSend() {
+        XCTAssertEqual(ActionEngine.sendVerdict("send"), .fire)
+        XCTAssertEqual(ActionEngine.sendVerdict("yes, send it"), .fire)
+        XCTAssertEqual(ActionEngine.sendVerdict("okay send that."), .fire)
+    }
+
+    func testSendVerdictNeverFiresOnBareYesOrNegation() {
+        XCTAssertEqual(ActionEngine.sendVerdict("yes"), .dropSilently)
+        XCTAssertEqual(ActionEngine.sendVerdict("don't send"), .refuseAloud)
+        XCTAssertEqual(ActionEngine.sendVerdict("do not send"), .refuseAloud)
+        XCTAssertEqual(ActionEngine.sendVerdict("no, send it anyway"), .dropSilently)
+    }
+
+    func testSendVerdictRefusesAloudAndPassesQuietly() {
+        XCTAssertEqual(ActionEngine.sendVerdict("cancel"), .refuseAloud)
+        XCTAssertEqual(ActionEngine.sendVerdict("never mind"), .refuseAloud)
+        XCTAssertEqual(ActionEngine.sendVerdict("what's next"), .dropSilently)
+    }
+
+    // MARK: Courier staging (the split rules that broke twice)
+
+    private func stubResolver(
+        knowing book: [String: (String, String)]
+    ) -> (String) async -> MessageCourier.Resolution {
+        { name in
+            if let hit = book[name.lowercased()] {
+                return .one(name: hit.0, handle: hit.1)
+            }
+            return MessageCourier.Resolution.none
+        }
+    }
+
+    func testStagingCommaInBodySurvivesViaTokenWalk() async {
+        // R105: "text mom running late, see you soon" once died on
+        // its own comma; the front-split fails and the walk wins.
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: ["mom": ("Mom", "+15551234567")])
+        _ = await courier.stage(
+            freeform: "mom I'm running late, see you soon", using: resolve
+        )
+        XCTAssertEqual(courier.pending?.name, "Mom")
+        XCTAssertEqual(courier.pending?.body, "I'm running late, see you soon")
+    }
+
+    func testStagingExplicitColonSplits() async {
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: ["john smith": ("John Smith", "j@x.com")])
+        _ = await courier.stage(
+            freeform: "john smith: running late", using: resolve
+        )
+        XCTAssertEqual(courier.pending?.name, "John Smith")
+        XCTAssertEqual(courier.pending?.body, "running late")
+    }
+
+    func testStagingLongestNameWinsOverShort() async {
+        // "mary jane meet me" must reach Mary Jane, not Mary with a
+        // strange message.
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: [
+            "mary": ("Mary", "1@x.com"),
+            "mary jane": ("Mary Jane", "2@x.com"),
+        ])
+        _ = await courier.stage(freeform: "mary jane meet me", using: resolve)
+        XCTAssertEqual(courier.pending?.name, "Mary Jane")
+        XCTAssertEqual(courier.pending?.body, "meet me")
+    }
+
+    func testStagingWholeUtteranceNameAsksForWords() async {
+        // R105: "text mary jane" once texted the surname to Mary.
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: ["mary jane": ("Mary Jane", "2@x.com")])
+        let answer = await courier.stage(freeform: "mary jane", using: resolve)
+        XCTAssertNil(courier.pending)
+        XCTAssertTrue(answer.hasPrefix("Text Mary Jane what?"), answer)
+    }
+
+    func testStagingMultiTokenPhoneRun() async {
+        // R106: a pasted "+1 (630) 545 8630" arrives as several
+        // tokens and must travel as one normalized handle.
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: [:])
+        _ = await courier.stage(
+            freeform: "+1 (630) 545 8630 formatting test", using: resolve
+        )
+        XCTAssertEqual(courier.pending?.handle, "+16305458630")
+        XCTAssertEqual(courier.pending?.body, "formatting test")
+    }
+
+    func testStagingUnknownNameAnswersHonestly() async {
+        let courier = MessageCourier()
+        let resolve = stubResolver(knowing: [:])
+        let answer = await courier.stage(freeform: "zork hello there", using: resolve)
+        XCTAssertNil(courier.pending)
+        XCTAssertTrue(answer.hasPrefix("No one called"), answer)
+    }
 }

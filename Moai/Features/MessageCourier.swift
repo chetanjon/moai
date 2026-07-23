@@ -38,7 +38,10 @@ final class MessageCourier {
     /// its own comma), and a front separator whose left side isn't
     /// in Contacts falls through to the token walk instead of
     /// giving up.
-    func stage(freeform rest: String) async -> String {
+    func stage(
+        freeform rest: String,
+        using resolve: (String) async -> Resolution = { await MessageCourier.resolve($0) }
+    ) async -> String {
         pending = nil
         var trimmed = rest.trimmingCharacters(in: .whitespaces)
         for lead in ["to "] where trimmed.lowercased().hasPrefix(lead) {
@@ -59,7 +62,7 @@ final class MessageCourier {
             let whoTokens = who.split(separator: " ").count
             if whoTokens <= 3 {
                 let what = String(trimmed[cut.upperBound...])
-                let answer = await stage(recipient: who, body: what)
+                let answer = await stage(recipient: who, body: what, using: resolve)
                 // A failed front-split is not the end: the walk
                 // below may still find the name.
                 if pending != nil || !answer.hasPrefix("No one called") {
@@ -101,11 +104,10 @@ final class MessageCourier {
         // and not a Mary with a strange message; the whole utterance
         // is a fair candidate too ("text mary jane" is a name and a
         // missing message, not Mary and the word jane).
-        if let gate = contactsGate() { return gate }
         var ambiguous: [String]?
         for length in stride(from: min(3, tokens.count), through: 1, by: -1) {
             let candidate = tokens.prefix(length).joined(separator: " ")
-            switch await Self.resolve(candidate) {
+            switch await resolve(candidate) {
             case .one(let name, let handle):
                 let body = tokens.dropFirst(length).joined(separator: " ")
                     .trimmingCharacters(in: .whitespaces)
@@ -117,6 +119,8 @@ final class MessageCourier {
                 ambiguous = names
             case .denied:
                 return "Moai can't read Contacts. System Settings, Privacy and Security, Contacts. Or text the number itself."
+            case .unasked:
+                return "macOS is asking to let Moai see Contacts. Click Allow, then say it again."
             case .failed:
                 return "Contacts didn't answer. Say it again in a moment."
             default:
@@ -131,7 +135,11 @@ final class MessageCourier {
     }
 
     /// Resolve who and stage what; the returned line is the read-back.
-    private func stage(recipient: String, body: String) async -> String {
+    private func stage(
+        recipient: String,
+        body: String,
+        using resolve: (String) async -> Resolution = { await MessageCourier.resolve($0) }
+    ) async -> String {
         pending = nil
         var who = recipient.trimmingCharacters(in: .whitespaces)
         for lead in ["to "] where who.lowercased().hasPrefix(lead) {
@@ -148,8 +156,7 @@ final class MessageCourier {
             return stagePending(name: who, handle: literal, body: what)
         }
 
-        if let gate = contactsGate() { return gate }
-        switch await Self.resolve(who) {
+        switch await resolve(who) {
         case .none:
             return "No one called \"\(who)\" in Contacts."
         case .denied:
@@ -157,6 +164,8 @@ final class MessageCourier {
         case .many(let names):
             let list = names.prefix(3).joined(separator: " · ")
             return "Which one? \(list). Say text and the fuller name."
+        case .unasked:
+            return "macOS is asking to let Moai see Contacts. Click Allow, then say it again."
         case .failed:
             return "Contacts didn't answer. Say it again in a moment."
         case .one(let name, let handle):
@@ -169,23 +178,6 @@ final class MessageCourier {
         pending = Pending(name: name, handle: handle, body: body, staged: Date())
         primeMessagesGrant()
         return readBack()
-    }
-
-    /// The Contacts dialog must never be awaited from here: a dialog
-    /// nobody clicks would hold isWorking and wedge the island. Ask
-    /// without waiting and say plainly what to do next.
-    private func contactsGate() -> String? {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .notDetermined:
-            Task.detached(priority: .userInitiated) {
-                _ = try? await CNContactStore().requestAccess(for: .contacts)
-            }
-            return "macOS is asking to let Moai see Contacts. Click Allow, then say it again."
-        case .denied, .restricted:
-            return "Moai can't read Contacts. System Settings, Privacy and Security, Contacts. Or text the number itself."
-        default:
-            return nil
-        }
     }
 
     private func readBack() -> String {
@@ -278,9 +270,12 @@ final class MessageCourier {
 
     // MARK: - Who
 
-    private enum Resolution {
+    enum Resolution {
         case none
         case denied
+        /// The Contacts dialog has not been answered yet; the ask
+        /// was just fired without waiting (the R94 wedge rule).
+        case unasked
         case failed
         case one(name: String, handle: String)
         case many([String])
@@ -307,14 +302,19 @@ final class MessageCourier {
     /// Look the spoken name up in the user's address book. Nickname
     /// beats given name beats full name; several equal hits come back
     /// as a question instead of a guess.
-    nonisolated private static func resolve(_ spokenName: String) async -> Resolution {
-        // Mirror the gate exactly: it lets through anything that is
-        // not undetermined/denied/restricted (limited access counts
-        // as a yes), so requiring .authorized here called limited
-        // access "denied" and pointed at the wrong fix (review-
-        // caught).
+    nonisolated static func resolve(_ spokenName: String) async -> Resolution {
+        // Anything not undetermined/denied/restricted passes (limited
+        // access counts as a yes). The undetermined case fires the
+        // ask without waiting and reports itself, so no caller ever
+        // blocks on a dialog (the R94 wedge rule) and no separate
+        // gate needs to run before resolution.
         switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .notDetermined, .denied, .restricted:
+        case .notDetermined:
+            Task.detached(priority: .userInitiated) {
+                _ = try? await CNContactStore().requestAccess(for: .contacts)
+            }
+            return .unasked
+        case .denied, .restricted:
             return .denied
         default:
             break

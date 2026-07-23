@@ -29,23 +29,19 @@ final class ActionEngine {
         // drops it. Bare "yes" is NOT consent for an outward message;
         // it once was, and that was a sent-unconfirmed bug waiting.
         if model.courier.pending != nil {
-            let words = Set(lower.split(separator: " ").map {
-                $0.trimmingCharacters(in: CharacterSet(charactersIn: ",."))
-            })
-            let negated = ["don't", "dont", "not", "never", "no"]
-                .contains(where: words.contains)
-            if words.contains("send"), !negated {
+            switch Self.sendVerdict(lower) {
+            case .fire:
                 model.isWorking = true
                 let outcome = await model.courier.confirmSend()
                 model.isWorking = false
                 return outcome
-            }
-            model.courier.drop()
-            if ["cancel", "don't send", "dont send", "do not send", "no",
-                "drop it", "never mind", "nevermind"].contains(lower) {
+            case .refuseAloud:
+                model.courier.drop()
                 return "Dropped."
+            case .dropSilently:
+                // Any other command drops it on the way through.
+                model.courier.drop()
             }
-            // Any other command drops it silently on the way through.
         } else if ["send", "send it"].contains(lower) {
             return "Nothing staged to send."
         } else if ["cancel", "never mind", "nevermind"].contains(lower) {
@@ -711,6 +707,32 @@ final class ActionEngine {
     """
 
     // MARK: - Parsing helpers
+
+    /// What a staged message should do with the next utterance. The
+    /// contract read back to the user is "say send, or anything else
+    /// to drop it": any unnegated mention of send fires, explicit
+    /// refusals answer aloud, and everything else drops silently.
+    /// Bare "yes" is NOT consent for an outward message; it was
+    /// once, and that was a sent-unconfirmed bug (R105).
+    enum SendVerdict {
+        case fire
+        case refuseAloud
+        case dropSilently
+    }
+
+    static func sendVerdict(_ lower: String) -> SendVerdict {
+        let words = Set(lower.split(separator: " ").map {
+            $0.trimmingCharacters(in: CharacterSet(charactersIn: ",."))
+        })
+        let negated = ["don't", "dont", "not", "never", "no"]
+            .contains(where: words.contains)
+        if words.contains("send"), !negated { return .fire }
+        if ["cancel", "don't send", "dont send", "do not send", "no",
+            "drop it", "never mind", "nevermind"].contains(lower) {
+            return .refuseAloud
+        }
+        return .dropSilently
+    }
 
     /// Politeness is welcome and ignored: leading fillers peel off
     /// until a verb can lead, and a trailing "please" or "for me"
